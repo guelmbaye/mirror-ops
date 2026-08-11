@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------- secrets
+# Les .env réels ne sont jamais versionnés. Les .env.example, si.
+.env
+.env.local
+.env.*.local
+!.env.example
+!apps/api/.env.example
+!apps/web/.env.local.example
+
+# ------------------------------------------------------------------ Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ------------------------------------------------------------------ Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.npm/
+.pnpm-store/
+
+# -------------------------------------------------- données locales & médias
+# Sessions, photos et aperçus temporaires : rien de tout cela n'a à survivre
+# à un clone du dépôt.
+var/
+*.db
+*.sqlite3
+
+# ------------------------------------------------------------------ divers
+dist/
+build/
+coverage/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

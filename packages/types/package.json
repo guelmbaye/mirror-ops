@@ -1,0 +1,9 @@
+{
+  "name": "@mirror-ops/types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Contrat d'API partagé entre le backend FastAPI et le frontend Next.js",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": { ".": "./index.ts" }
+}

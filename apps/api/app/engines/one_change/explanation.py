@@ -1,0 +1,132 @@
+"""Moteur d'explication deterministe (Doc 04 §18, Doc 06 §17/§18).
+
+Contrainte forte : l'explication doit refleter le calcul reel.
+"Ne jamais generer une justification generique independante du calcul."
+Aucun LLM requis.
+"""
+
+from __future__ import annotations
+
+from app.engines.one_change.scorer import contribution_breakdown
+from app.engines.one_change.types import DecisionContext, Explanation, ScoredCandidate
+from app.models.enums import (
+    ACTION_ELEMENT,
+    MATERIALISED_ELEMENT,
+    ACTION_LABEL,
+    ACTION_LABEL_ADD,
+    ChangeAction,
+    Goal,
+)
+
+GOAL_PHRASE: dict[Goal, str] = {
+    Goal.PROFESSIONAL: "professional presence",
+    Goal.CONFIDENT: "visual confidence",
+    Goal.APPROACHABLE: "approachability",
+    Goal.ELEGANT: "elegance",
+    Goal.EXPRESSIVE: "personal expression",
+}
+
+FACTOR_PHRASE: dict[str, str] = {
+    "goal_alignment": "it is the lever most aligned with your goal",
+    "context_fit": "it fits what this occasion calls for",
+    "visual_impact": "it is the change people will actually notice",
+    "current_gap": "it is where your look has the most room to improve",
+    "time_fit": "it is realistic in the time you have",
+    "data_confidence": "it is the element we can read most reliably",
+    "vto_feasibility": "it can be shown to you before you commit",
+}
+
+ELEMENT_NOUN: dict[ChangeAction, str] = {
+    ChangeAction.CHANGE_JACKET: "jacket",
+    ChangeAction.CHANGE_TOP: "top",
+    ChangeAction.CHANGE_BOTTOM: "bottom",
+    ChangeAction.CHANGE_SHOES: "shoes",
+    ChangeAction.CHANGE_ACCESSORY: "accessory",
+    ChangeAction.CHANGE_COLOR: "colour balance",
+}
+
+
+def dominant_factors(winner: ScoredCandidate, limit: int = 2) -> list[str]:
+    """Les features qui ont reellement porte le score du gagnant."""
+    contributions = contribution_breakdown(winner.features)
+    ranked = sorted(contributions.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [name for name, _ in ranked[:limit]]
+
+
+def keep_list(context: DecisionContext, action: ChangeAction) -> list[str]:
+    # On retire l'element reellement touche, pas seulement celui que l'action
+    # nomme : sinon « Keep · Top » cohabite avec un apercu qui change le haut.
+    element = MATERIALISED_ELEMENT[action]
+    kept = [str(e) for e in sorted(context.appearance.present_elements, key=lambda e: str(e))]
+    if element is not None:
+        kept = [e for e in kept if e != str(element)]
+    return kept
+
+
+def is_addition(context: DecisionContext, action: ChangeAction) -> bool:
+    """La piece visee manque-t-elle ? Alors on l'ajoute, on ne la change pas."""
+    element = ACTION_ELEMENT[action]
+    return element is not None and element not in context.appearance.present_elements
+
+
+def label_for(context: DecisionContext, action: ChangeAction) -> str:
+    """« Change the jacket » ou « Add a jacket », selon ce que la personne porte.
+
+    Dire « change the jacket » a quelqu'un qui n'en porte pas est faux, et le
+    produit perd sa credibilite dans la seconde qui suit.
+    """
+    if is_addition(context, action):
+        return ACTION_LABEL_ADD.get(action, ACTION_LABEL[action])
+    return ACTION_LABEL[action]
+
+
+def build_explanation(
+    context: DecisionContext,
+    winner: ScoredCandidate,
+    selection_reason: str,
+) -> Explanation:
+    goal_phrase = GOAL_PHRASE[context.moment.goal]
+
+    if winner.action is ChangeAction.NO_CHANGE:
+        return _no_change_explanation(context, goal_phrase, selection_reason)
+
+    noun = ELEMENT_NOUN[winner.action]
+    factors = dominant_factors(winner)
+    primary = FACTOR_PHRASE[factors[0]]
+    secondary = FACTOR_PHRASE[factors[1]] if len(factors) > 1 else None
+
+    what = label_for(context, winner.action) + "."
+    why = (
+        f"Among the changes available to you right now, the {noun} offers the highest "
+        f"expected improvement for {goal_phrase} — {primary}"
+        + (f", and {secondary}." if secondary else ".")
+    )
+    how = "Keep the rest of your look exactly as it is."
+    reason = (
+        f"{label_for(context, winner.action)} because it offers the highest expected improvement "
+        f"for {goal_phrase} while keeping the rest of your look unchanged."
+    )
+    return Explanation(what=what, why=why, how=how, reason=reason, dominant_factors=factors)
+
+
+def _no_change_explanation(
+    context: DecisionContext, goal_phrase: str, selection_reason: str
+) -> Explanation:
+    occasion = str(context.moment.occasion)
+    if selection_reason == "best_change_below_threshold":
+        why = (
+            "No available change scored high enough to be worth the effort right now. "
+            f"Your look already carries enough {goal_phrase} for this {occasion}."
+        )
+    else:
+        why = (
+            f"Your current look already matches this {occasion}, and no single change "
+            f"would add enough {goal_phrase} to justify it."
+        )
+    return Explanation(
+        what="Don't change it.",
+        why=why,
+        how="Leave your look as it is and go.",
+        reason="Your current look already fits the selected moment.",
+        dominant_factors=["current_gap", "context_fit"],
+    )

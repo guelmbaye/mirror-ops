@@ -1,0 +1,4 @@
+# Le dépôt fonctionne avec npm workspaces (voir package.json) comme avec pnpm.
+packages:
+  - "apps/web"
+  - "packages/*"

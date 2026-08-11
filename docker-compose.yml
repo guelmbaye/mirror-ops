@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mirror
+      POSTGRES_PASSWORD: mirror
+      POSTGRES_DB: mirror_ops
+    ports:
+      - "5432:5432"
+    volumes:
+      - mirror_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mirror -d mirror_ops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      # Racine du monorepo : l'image embarque aussi scripts/.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://mirror:mirror@db:5432/mirror_ops
+      PUBLIC_BASE_URL: http://localhost:8000
+      STORAGE_BACKEND: local
+      STORAGE_DIR: /srv/api/var/storage
+      YOUCAM_MODE: ${YOUCAM_MODE:-mock}
+      YOUCAM_CLIENT_ID: ${YOUCAM_CLIENT_ID:-}
+      YOUCAM_CLIENT_SECRET: ${YOUCAM_CLIENT_SECRET:-}
+      MEDIA_SIGNING_SECRET: ${MEDIA_SIGNING_SECRET:-dev-secret-change-me}
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - mirror_media:/srv/api/var/storage
+      - mirror_garments:/srv/api/var/garments
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Le navigateur appelle l'API depuis la machine hôte, pas depuis le
+        # réseau Docker : c'est bien localhost:8000 qu'il faut compiler ici.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  mirror_pgdata:
+  mirror_media:
+  # Les vetements importes survivent aux reconstructions d'image.
+  mirror_garments:

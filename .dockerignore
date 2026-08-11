@@ -1,0 +1,20 @@
+# Contexte de build : racine du monorepo.
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+**/var/
+.venv/
+**/.venv/
+.git/
+docs/
+*.md
+.env
+**/.env
+**/.env.local
+*.tsbuildinfo

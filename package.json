@@ -1,0 +1,20 @@
+{
+  "name": "mirror-ops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MIRROR OPS — appearance decision agent. One change, proven before you make it.",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @mirror-ops/web",
+    "build": "npm run build --workspace @mirror-ops/web",
+    "start": "npm run start --workspace @mirror-ops/web",
+    "typecheck": "npm run typecheck --workspace @mirror-ops/web"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "packageManager": "npm@10.8.2"
+}
