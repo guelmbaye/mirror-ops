@@ -435,10 +435,26 @@ Déjà réglé dans `apps/web/next.config.mjs` :
 
 ```javascript
 const nextConfig = {
-  output: "standalone",                                   // requis par le Dockerfile
+  output: "standalone",
   transpilePackages: ["@mirror-ops/types", "@mirror-ops/config"],
+  experimental: {
+    outputFileTracingRoot: path.join(here, "../.."),   // racine du monorepo
+  },
 };
 ```
+
+`outputFileTracingRoot` n'est pas facultatif ici. Sans lui, Next **déduit** la
+racine du projet et place `server.js` tantôt à la racine de `standalone/`,
+tantôt sous `apps/web/` — selon la présence d'un fichier de verrou dans le
+contexte de build. Un Dockerfile ne peut pas parier sur une disposition
+variable : le conteneur boucle alors sur
+
+```
+Error: Cannot find module '/srv/apps/web/server.js'
+```
+
+Le déclarer rend la sortie déterministe, et garantit au passage que
+`packages/types` et `packages/config` sont bien tracés.
 
 ### 11.2 — Le build ne dépend pas des outils de test
 
@@ -534,6 +550,16 @@ docker compose run --rm --entrypoint certbot certbot certonly \
 ```
 
 ### 13.3 — Réactiver les vhosts complets
+
+> Nginx résout les noms d'hôtes de ses `proxy_pass` **au chargement de la
+> configuration**. Si un conteneur applicatif est arrêté ou en redémarrage, le
+> rechargement échoue avec `host not found in upstream`, et l'ancienne
+> configuration reste active. Vérifier d'abord que tout tourne :
+>
+> ```bash
+> docker compose -f docker-compose.prod.yml ps   # tous « Up », aucun « Restarting »
+> docker exec proxy-nginx nginx -s reload
+> ```
 
 ```bash
 cd /var/www/proxy/nginx/conf.d
@@ -804,6 +830,17 @@ curl -s https://api.mirror-ops.vylantic.com/api/v1/garments | jq '.garments[] | 
 `"placeholder": true` → le visuel est un aplat généré, le try-on n'a rien à
 segmenter. Voir §11.5. Le champ `garment_source` de l'erreur dit par ailleurs si
 la pièce venait du catalogue ou d'un import utilisateur.
+
+### `host not found in upstream` au rechargement de Nginx
+
+Le conteneur visé n'est pas en marche — souvent en boucle de redémarrage. Nginx
+résout ces noms au chargement de la configuration, pas à chaque requête : ce
+n'est donc pas un problème de vhost.
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs web --tail 30
+```
 
 ### 502 Bad Gateway
 

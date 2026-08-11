@@ -62,6 +62,14 @@ Les types viennent de `@mirror-ops/types` (miroir des schémas Pydantic) et les
 libellés de `@mirror-ops/config`. Le backend renvoie des identifiants stables ;
 la façon de les nommer à l'utilisateur appartient à l'interface.
 
+## Essayer sa propre pièce
+
+Le bouton **« Try a piece of your own »** est présent sur **deux** écrans, et
+c'est délibéré. Il n'existait d'abord que sur Before/After — donc derrière un
+essayage réussi. Or c'est exactement quand le catalogue échoue que la personne
+en a besoin, et elle se trouve alors sur l'écran de décision. Une échappatoire
+placée derrière la porte bloquée n'en est pas une.
+
 ## « Try another » sans trahir ONE CHANGE
 
 Le positionnement prévoit un écran « Keep it / Try another ». La règle 3 interdit
@@ -155,9 +163,15 @@ Plancher de qualité : responsive jusqu'à 320 px, focus clavier visible,
 
 ```bash
 npm run test          # vitest + jsdom
-npm run typecheck     # tsc --noEmit
+npm run typecheck     # application ET tests, deux passes
 npm run build         # build de production
 ```
+
+`next build` type-vérifie tout ce que `tsconfig.json` inclut. Les tests et leur
+configuration en sont donc **exclus** : sans cela, compiler la production
+échouerait dès qu'une dépendance de développement manque — ce qui est le cas
+normal sur un serveur de build. Ils restent vérifiés à part, avec la même
+rigueur, via `tsconfig.test.json`.
 
 `tests/analyzing.test.tsx` couvre le point le plus fragile du parcours : l'écran
 d'analyse enchaîne deux appels asynchrones puis navigue. Il est monté **sous
