@@ -1,9 +1,10 @@
-# Intégration YouCam
+# YouCam integration
 
 > Never build the product around the API response.
-> Build the product around the user decision, then use YouCam to make that decision possible.
+> Build the product around the user decision, then use YouCam to make that
+> decision possible.
 
-## 1. Frontière
+## 1. The boundary
 
 ```
 Browser ──► MIRROR OPS backend ──► adapters ──► YouCam
@@ -11,237 +12,236 @@ Browser ──► MIRROR OPS backend ──► adapters ──► YouCam
                           SkinAnalysisResult / VTOGenerationResult
 ```
 
-Le navigateur ne parle **jamais** à YouCam. La clé reste côté serveur. Le code métier
-n'appelle jamais `httpx` directement : il appelle `skin_provider.analyze(...)` ou
+The browser **never** talks to YouCam. The key stays server-side. Business code
+never calls `httpx` directly: it calls `skin_provider.analyze(...)` or
 `vto_provider.generate(...)`.
 
-## 2. Fichiers
+## 2. Files
 
-| Fichier | Rôle |
+| File | Role |
 |---|---|
-| `client.py` | HTTP, auth + cache de token, timeouts, retries bornés, upload/tâches/polling |
-| `skin_ai.py` | protocole Skin AI complet → observations normalisées |
-| `apparel_vto.py` | protocole Apparel VTO → image transformée |
-| `mappers.py` | seul endroit qui connaît les formes de réponse YouCam |
-| `exceptions.py` | taxonomie d'erreurs interne (le reste du code ne voit que ça) |
-| `mock.py` | providers locaux hors ligne, explicitement marqués « simulated » |
-| `provider.py` | protocoles + fabrique `mock` / `live` |
+| `client.py` | HTTP, auth, timeouts, bounded retries, uploads, tasks, polling |
+| `skin_ai.py` | full Skin AI protocol → normalised observations |
+| `apparel_vto.py` | Apparel VTO protocol → transformed image |
+| `mappers.py` | the only place that knows YouCam response shapes |
+| `auth.py` | RSA `id_token` for the legacy v1 auth |
+| `exceptions.py` | internal error taxonomy (the rest of the code sees only this) |
+| `mock.py` | offline local providers, explicitly marked "simulated" |
+| `provider.py` | protocols + `mock` / `live` factory |
 
-## 2 bis. Authentification
+## 2 bis. Authentication
 
-**Le produit utilise l'API v2, qui n'a pas d'endpoint d'authentification.** La clé
-API part directement en en-tête :
+**The product uses API v2, which has no authentication endpoint.** The API key
+goes straight into a header:
 
 ```
-Authorization: Bearer VOTRE_CLE_API
+Authorization: Bearer YOUR_API_KEY
 ```
 
-Une seule variable suffit : `YOUCAM_API_KEY`, créée dans la console
+One variable is enough: `YOUCAM_API_KEY`, created in the console
 (<https://yce.perfectcorp.com/api-console/en/api-keys/>).
 
-### Vocabulaire de la console, qui prête à confusion
+### Console vocabulary, which is confusing
 
-Dans la documentation YouCam, **l'« API Key » est le `client_id` et la
-« Secret key » est le `client_secret`**. Il n'existe donc pas trois valeurs
-distinctes : ce sont deux noms pour la même paire. La Secret key n'est affichée
-qu'à sa création et ne peut plus être relue ensuite.
+In YouCam's documentation, the **"API Key" is the `client_id` and the "Secret
+key" is the `client_secret`**. There are not three distinct values: those are
+two names for the same pair. The Secret key is shown only at creation time and
+cannot be read back.
 
-Ces deux valeurs ne servent qu'à l'API **v1**, qui exige en plus de chiffrer le
-secret en RSA pour produire un `id_token`. C'est implémenté dans
-`app/integrations/youcam/auth.py` et couvert par `tests/test_youcam_auth.py`,
-mais **ce chemin n'est plus le chemin par défaut** : v2 rend tout cela inutile.
+Those two values are only needed by API **v1**, which additionally requires
+RSA-encrypting the secret to produce an `id_token`. That is implemented in
+`auth.py` and covered by `tests/test_youcam_auth.py`, but **it is no longer the
+default path**: v2 makes all of it unnecessary.
 
 ## 2 ter. Base URL
 
-`https://yce-api-01.makeupar.com` — et non `perfectcorp.com`, que la marque
-utilise pour son site et sa console mais pas pour l'API.
+`https://yce-api-01.makeupar.com` — not `perfectcorp.com`, which the brand uses
+for its site and console but not for the API.
 
-## 3. Flux réel (mode `live`)
+## 3. Live flow
 
 ```
-image validée
-   ↓ POST  /s2s/v2.0/file/skin-analysis      → file_id + URL d'upload pré-signée
-   ↓ PUT   URL d'upload                      → octets de l'image
+validated image
+   ↓ POST  /s2s/v2.0/file/skin-analysis      → file_id + pre-signed upload URL
+   ↓ PUT   upload URL                        → image bytes
    ↓ POST  /s2s/v2.0/task/skin-analysis      → task_id
-   ↓ GET   /s2s/v2.0/task/skin-analysis/{id} → polling (task_id dans le CHEMIN)
+   ↓ GET   /s2s/v2.0/task/skin-analysis/{id} → polling (task_id in the PATH)
    ↓ mappers.normalize_skin_payload          → {texture, redness, oiliness, radiance}
 ```
 
-L'enveloppe v2 est `{"status": 200, "data": {...}}`, et l'état de tâche s'appelle
-`task_status`. Le VTO suit le même schéma sur `/s2s/v2.0/{file,task}/cloth` —
-**« cloth » au singulier**.
+The v2 envelope is `{"status": 200, "data": {...}}`, and the task state is called
+`task_status`. The try-on follows the same shape on
+`/s2s/v2.0/{file,task}/cloth` — **"cloth", singular**.
 
-### Une seule photo, deux exigences contradictoires
+The cloth task expects `src_file_id` and `ref_file_id` — **singular**, never an
+array — plus `garment_category` and `change_shoes`.
 
-Skin AI rejette toute image où le visage occupe moins de **60 % de la largeur**
-(`error_src_face_too_small`). MIRROR OPS photographie une **tenue**, où le visage
-est forcément petit. Les deux ne tiennent pas sur un même cadrage.
+Polling stays **in the backend**: the frontend only ever sees
+`ANALYZING → VTO PREPARATION → READY`.
 
-Le parcours reste néanmoins à **une seule prise de vue** : demander un second
-cliché ajouterait un écran, et la contrainte est le produit. La photo de tenue
-est donc recadrée côté serveur (`services/face_crop.py`) avant l'appel Skin AI —
-l'original, intact, part au VTO et s'affiche à l'écran.
+## 4. One photo, two contradictory requirements
+
+Skin AI rejects any image where the face occupies less than **60% of the width**
+(`error_src_face_too_small`). MIRROR OPS photographs an **outfit**, where the
+face is necessarily small. The two do not fit in one framing.
+
+The journey nonetheless stays at **one shot**: asking for a second would add a
+screen, and the constraint is the product. The outfit photo is therefore cropped
+server-side (`services/face_crop.py`) before the Skin AI call — the original,
+untouched, goes to the try-on and to the screen.
 
 ```
-photo de tenue ──┬─→ recadrage visage (68 % de la largeur) ──→ Skin AI
-                 └─→ image d'origine ──────────────────────→ Apparel VTO
+outfit photo ──┬─→ face crop (68% of the width) ──→ Skin AI
+               └─→ original image ─────────────────→ Apparel VTO
 ```
 
-Conséquences assumées :
+Accepted consequences:
 
-- Les actions sont en **SD** et non HD : HD exige un côté court ≥ 1080 px, qu'un
-  cadrage de visage extrait d'une photo en pied atteint rarement.
-- Un visage détecté sous 140 px de large ne donne **aucun** appel : l'agrandir ne
-  produirait que des pixels interpolés, et analyser une invention est pire que ne
-  rien analyser.
-- Aucun visage détecté → aucun appel non plus. On économise une unité sur un rejet
-  certain, et `skin_source` vaut `unavailable_no_face`.
+- Actions are **SD**, not HD: HD requires a short side ≥ 1080 px, which a face
+  crop taken from a full-length photo rarely reaches.
+- A detected face under 140 px wide produces **no** call: enlarging it would only
+  yield interpolated pixels, and analysing an invention is worse than analysing
+  nothing.
+- No face detected → no call either. That saves a credit on a certain rejection,
+  and `skin_source` reads `unavailable_no_face`.
 
-La détection utilise le classifieur de Haar livré avec OpenCV. La dépendance est
-**optionnelle à l'exécution** : sans elle, le parcours continue sans signal peau.
+Detection uses the Haar classifier shipped with OpenCV. The dependency is
+**optional at runtime**: without it, the journey continues without a skin signal.
 
-### Skin AI ne peut pas faire échouer un parcours
+## 4 bis. A failed task names its cause
 
-Une panne du provider — timeout, quota, image refusée — ne renvoie plus d'erreur :
-l'analyse se poursuit avec `skin_source = "unavailable"`, sans valeur inventée, et
-la confiance de décision baisse d'elle-même. C'est la conséquence directe du
-positionnement : *Skin AI informe la décision, il ne la prend pas.* Un service
-tiers ne doit pas pouvoir interrompre une démonstration.
+A terminal `error` status says nothing by itself. The response body carries an
+`error_code`: `error_pose`, `error_multiple_people`, `error_no_shoulder`,
+`error_unsupport_ratio`, `error_editing_failed`, `unknown_internal_error`…
 
-Le rate limit fait exception : il reste remonté à l'utilisateur, parce que
-réessayer plus tard a du sens.
+That code is extracted, logged, carried on the exception (`provider_code`) and
+translated into guidance by `services/photo_guidance.py`. A **photo** problem
+becomes a `422` with an actionable sentence — *"We can only work with one person
+in the photo"* — rather than a generic `502`: the user can act, so they must be
+told.
 
-### Sens des scores : une inversion nécessaire
+An `unknown_internal_error` remains a service failure.
 
-Chez YouCam, un score **élevé** signifie une peau **saine**. Le moteur MIRROR OPS,
-lui, raisonne en **sévérité** : plus la rougeur est marquée, plus la valeur est
-haute. `mappers.INVERTED_METRICS` inverse donc `redness`, `oiliness` et `texture`,
-et laisse `radiance` tel quel puisque c'est déjà une qualité. Sans cette
-inversion, une peau parfaite serait lue comme très marquée et le signal peau
-pousserait la décision dans le mauvais sens.
+## 4 ter. `error_editing_failed`: look at the garment first
 
-Le VTO suit le même schéma avec deux fichiers sources (look courant + vêtement), puis
-téléchargement de l'image résultat.
+This code means the render could not be produced. In this project the cause is
+almost always the **reference** image: a flat shape is not a garment, and the
+model has nothing to segment.
 
-Le polling reste **côté backend** : le frontend ne voit que `ANALYZING → VTO PREPARATION → READY`.
+Every try-on failure now carries `garment_source` — `catalog` or `uploaded` —
+and `garment_id`. That is the first thing to read: it says at a glance whether
+the shipped catalogue is at fault.
 
-## 4. Normalisation
+The shortest path remains **"Try a piece of your own"**: the person photographs
+the piece they're considering, and the catalogue is out of the equation.
 
-`mappers.py` accepte les échelles 0–100 comme 0–1, les valeurs imbriquées, les alias
-(`hd_redness`, `skin_texture`, …) et ignore les métriques que le produit n'utilise pas.
-On ne stocke que ce qui sert réellement à la décision.
-
-Si aucune observation exploitable ne revient, l'adapter **lève une erreur** au lieu
-d'inventer des valeurs.
-
-## 4 bis. Une tâche qui échoue nomme sa cause
-
-Un statut terminal `error` ne dit rien par lui-même. Le corps de la réponse, lui,
-porte un `error_code` : `error_pose`, `error_multiple_people`, `error_no_shoulder`,
-`error_unsupport_ratio`, `unknown_internal_error`…
-
-Ce code est extrait, journalisé, porté par l'exception (`provider_code`) et
-traduit en consigne par `services/photo_guidance.py`. Un problème de **photo**
-devient un `422` avec une phrase actionnable — « We can only work with one person
-in the photo » — et non un `502` générique : l'utilisateur peut agir, il faut le
-lui dire.
-
-Un `unknown_internal_error` reste, lui, une panne de service.
-
-## 4 ter. `error_editing_failed` : d'abord le vêtement
-
-Ce code signifie que le rendu n'a pas pu être produit. Dans ce projet, la cause
-est presque toujours l'image de **référence** : un aplat n'est pas un vêtement,
-le modèle n'a rien à segmenter.
-
-`GET /garments` indique pour chaque pièce si son visuel est une vraie
-photographie ou un aplat (`"placeholder": true`). Un essayage qui réussit sur
-une pièce et échoue sur une autre s'explique donc sans inspecter un seul
-fichier.
-
-Tout échec d'essayage porte par ailleurs `garment_source` — `catalog` ou
-`uploaded` — et `garment_id`. C'est la première chose à lire : elle dit en un
-coup d'œil si le catalogue livré est en cause, ou s'il faut chercher ailleurs.
-
-Le chemin le plus court reste **« Try a piece of your own »** : la personne
-photographie la pièce qu'elle envisage, et le catalogue n'entre plus en jeu.
-
-### Catalogue local ou catalogue en ligne ?
-
-L'API accepte `ref_file_url` en alternative à `ref_file_id` : YouCam sait donc
-récupérer une image de vêtement par URL. Ce chemin n'est **pas** celui retenu,
-pour trois raisons : l'URL doit être joignable depuis les serveurs de YouCam —
-donc jamais un `localhost` de démonstration ; un lien mort casse le parcours au
-pire moment ; et on perd la normalisation (fond, format, dimensions) qui élimine
-justement une famille d'échecs.
-
-Le référencement en ligne se fait donc **à l'import** : téléchargement une fois,
-normalisation, service local. On garde la souplesse d'un catalogue distant sans
-en garder la fragilité.
-
-Pour le catalogue lui-même, trois outils ferment la boucle :
+For the catalogue itself, three tools close the loop:
 
 ```bash
-python scripts/check_garments.py                  # le catalogue est-il réel ?
-python scripts/import_garments.py <dossier>       # remplacer en une commande
-python scripts/probe_vto.py photo.jpg jacket_01   # un seul essayage, réponses brutes
+python scripts/check_garments.py                  # is the catalogue real?
+python scripts/import_garments.py <folder>        # replace it in one command
+python scripts/probe_vto.py photo.jpg jacket_01   # one try-on, raw responses
 ```
 
-Quoi qu'on dépose dans le catalogue, `garment_service.normalized_garment_bytes`
-convertit avant l'envoi : fond blanc, RGB, JPEG, côté long ≥ 1024 px. Format,
-transparence et taille sont donc éliminés de l'équation.
+Whatever is dropped into the catalogue, `garment_service.normalized_garment_bytes`
+converts before sending: white background, RGB, JPEG, long side ≥ 1024 px.
+Format, transparency and size are therefore removed from the equation.
 
-## 5. Erreurs et retries
+### Local catalogue or online catalogue?
 
-| Erreur provider | Retry | Message utilisateur |
+The API accepts `ref_file_url` as an alternative to `ref_file_id`: YouCam can
+fetch a garment image by URL. That path was **not** chosen, for three reasons:
+the URL must be reachable from YouCam's servers — so never a demo `localhost`; a
+dead link breaks the journey at the worst moment; and it forfeits the
+normalisation that removes a whole family of failures.
+
+Online referencing therefore happens **at import time**: download once,
+normalise, serve locally. You keep the flexibility of a remote catalogue without
+its fragility.
+
+## 5. Normalisation
+
+`mappers.py` accepts 0–100 as readily as 0–1 scales, nested values, aliases
+(`hd_redness`, `skin_texture`, …), and ignores metrics the product does not use.
+Only what actually feeds the decision is stored.
+
+If no usable observation comes back, the adapter **raises** rather than inventing
+values.
+
+### Score direction: a necessary inversion
+
+At YouCam, a **high** score means **healthy** skin. MIRROR OPS reasons in
+**severity**: the more marked the redness, the higher the value.
+`mappers.INVERTED_METRICS` therefore inverts `redness`, `oiliness` and
+`texture`, and leaves `radiance` alone since it is already a quality. Without
+that inversion, flawless skin would read as heavily marked and the skin signal
+would push the decision the wrong way.
+
+## 6. Errors and retries
+
+| Provider error | Retry | User-facing message |
 |---|---|---|
-| timeout / erreur transitoire | oui (max 2, backoff) | « Try again » |
-| rate limit | non | « Try again in a moment » |
-| auth / quota | non | « The service is unavailable » |
-| image invalide | non | « We need a clearer view of your look » |
+| timeout / transient error | yes (max 2, backoff) | "Try again" |
+| rate limit | no | "Try again in a moment" |
+| auth / quota | no | "The service is unavailable" |
+| invalid image | no | the specific guidance for that code |
 
-Aucune erreur brute YouCam n'atteint l'utilisateur.
+No raw YouCam error ever reaches the user.
 
-## 6. Économie d'unités
+### Skin AI cannot fail a journey
+
+A provider outage — timeout, quota, rejected image — no longer returns an error:
+the analysis continues with `skin_source = "unavailable"`, without invented
+values, and decision confidence drops on its own. That follows directly from the
+positioning: *Skin AI informs the decision, it does not make it.* A third-party
+service must not be able to interrupt a demo.
+
+Rate limiting is the exception: it stays surfaced to the user, because trying
+again later makes sense.
+
+## 7. Credit economy
 
 ```
-1 photo → 1 analyse Skin AI → scoring de N candidats → 1 VTO (le gagnant uniquement)
+1 photo → 1 Skin AI analysis → N candidates scored → 1 try-on (winner only)
 ```
 
-- `NO_CHANGE` → **aucun** appel VTO.
-- Cache court par empreinte d'image pour l'analyse.
-- `Idempotency-Key` sur `analyze` et `vto/generate` : un double-clic ne consomme pas deux fois.
-- Un test vérifie explicitement qu'un parcours coûte 1 analyse + 1 VTO.
+- `NO_CHANGE` → **no** try-on call.
+- Short-lived cache keyed by image fingerprint for the analysis.
+- `Idempotency-Key` on `analyze` and `vto/generate`, derived from **all** the
+  inputs: a double-click costs nothing, a corrected outfit is genuinely
+  re-analysed.
+- A test explicitly checks that one journey costs one analysis and one try-on.
 
-## 7. Mode dégradé honnête
+## 8. Honest degraded mode
 
-Si un aperçu porte la mention « simulated » alors que vous croyez être en `live`,
-c'est que le processus tourne en `mock` : le tampon ne ment jamais. Le contrôle
-décisif est `GET /api/v1/health/dependencies`, qui renvoie le mode réellement
-actif — pas celui que le fichier annonce.
+`YOUCAM_MODE=mock` runs the full journey offline. Results carry
+`provider = local_heuristic | local_composite`, `simulated = true`, and the
+generated image displays "SIMULATED PREVIEW — not generated by YouCam". A result
+that did not come from YouCam never pretends it did — including during a demo.
 
-`YOUCAM_MODE=mock` fait tourner le parcours complet hors ligne. Les résultats portent
-`provider = local_heuristic | local_composite`, `simulated = true`, et l'image générée
-affiche « SIMULATED PREVIEW — not generated by YouCam ». Un résultat qui ne vient pas de
-YouCam ne prétend jamais en venir — y compris pendant une démonstration.
+## 9. Before going live
 
-## 8. Avant de passer en `live`
+The single check that summarises everything: `GET /api/v1/health/dependencies`.
 
-Le contrôle unique qui résume tout : `GET /api/v1/health/dependencies`.
-
-| Réponse | Signification |
+| Response | Meaning |
 |---|---|
-| `"configured"` | prêt |
-| `"mock_mode"` | les aperçus seront marqués « simulated » |
-| `"missing_credentials"` | identifiants ou `YOUCAM_SECRET_KEY` absents |
-| `"missing_dependency"` | `cryptography` non installé — `pip install -r requirements.txt` |
+| `"configured"` | ready |
+| `"mock_mode"` | previews will be marked "simulated" |
+| `"missing_credentials"` | key absent |
+| `"missing_dependency"` | `cryptography` not installed |
 
-0. Écrire la configuration dans **`apps/api/.env`**, et nulle part ailleurs. Le
-   `.env` de la racine est réservé à docker-compose et n'est pas lu par uvicorn.
-   Puis **redémarrer l'API** : la configuration et les providers sont résolus une
-   seule fois, au démarrage.
-1. Vérifier la clé et **les unités restantes**.
-2. Confirmer dans le Playground les endpoints réellement accessibles au compte.
-3. Aligner `YOUCAM_*_PATH` et `YOUCAM_SKIN_ACTIONS` sur ce qui est activé.
-4. Contrôler `GET /api/v1/health/dependencies`.
-5. Figer les assets de démonstration et relancer `scripts/demo_flow.py` plusieurs fois.
+Then:
+
+1. Write the configuration into **`apps/api/.env`**, and nowhere else. The root
+   `.env` is for docker-compose and is not read by uvicorn. Restart the API:
+   configuration and providers are resolved once, at startup.
+2. Verify the key and **remaining credits**.
+3. Confirm in the Playground which endpoints your account can reach.
+4. Align `YOUCAM_*_PATH` and `YOUCAM_SKIN_ACTIONS` with what is enabled.
+5. Replace the catalogue visuals, freeze the demo assets, and re-run
+   `scripts/audit_journey.py` several times.
+
+If a preview carries "simulated" while you believe you are in `live`, the process
+is running in `mock`: the stamp never lies. The decisive check is
+`/health/dependencies`, which reports the mode actually in force — not the one
+the file announces.

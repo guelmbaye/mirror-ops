@@ -1,140 +1,142 @@
-# Positionnement — source de vérité unique
+# Positioning — single source of truth
 
-> MIRROR OPS détermine si votre look convient au moment dans lequel vous entrez
-> et, quand ce n'est pas le cas, identifie **le** changement qui vaut la peine —
-> puis le prouve avant que vous n'agissiez.
+> MIRROR OPS determines whether your current look fits the moment you're about
+> to enter and, when it doesn't, identifies the ONE change worth making — then
+> uses YouCam to prove the difference before you act.
 
-Ce document prime sur tous les autres. Toute décision de code, de copie ou de
-démonstration doit s'y conformer.
+This document overrides all others. Every code, copy and demo decision must
+conform to it.
 
-## 1. Catégorie
+---
 
-**Contextual appearance decision engine** — moteur de décision d'apparence contextuel.
+## 1. Category
 
-Pas : styliste IA · assistant d'achat · générateur de tenues · gestionnaire de
-garde-robe · application de VTO · outil de diagnostic de peau · optimiseur d'achat.
+**Contextual appearance decision engine.**
 
-| Signature | Promesse | Question distinctive |
+Not: AI stylist · shopping assistant · outfit generator · wardrobe manager ·
+virtual try-on app · skin diagnostic tool · purchase optimiser.
+
+| Signature | Promise | Distinctive question |
 |---|---|---|
 | **FIT THE MOMENT. ONE CHANGE.** | Don't redesign your look. Fix the mismatch. | *Will this look work here?* |
 
-Action distinctive : *si la réponse est non, faites **un** changement.*
-Preuve distinctive : *voyez-le avant d'agir.*
+Distinctive action: *if the answer is no, make **one** change.*
+Distinctive proof: *see it before you act.*
 
-## 2. La distinction qui décide de tout
+## 2. The distinction that decides everything
 
-Plusieurs projets concurrents traitent déjà « vérifiez votre look avant un moment
-important ». Ce n'est pas notre territoire.
+Several competing projects already address "check your look before an important
+moment". That is not our territory.
 
 ```
-Leur territoire :   CHECK      constater l'état de son apparence
-Notre territoire :  DECIDE     trancher ce qui mérite d'être changé
+Their territory:  CHECK      observe the state of your appearance
+Our territory:    DECIDE     rule on what is worth changing
 ```
 
 **CHECK YOUR LOOK ≠ DECIDE WHAT IS WORTH CHANGING.**
 
-Le problème n'est pas le manque d'options vestimentaires. C'est **l'incertitude de
-décision** dans un moment d'apparence : « j'ai cinq minutes avant une présentation
-importante — dois-je changer quelque chose ? »
+The problem is not a shortage of clothing options. It is **decision uncertainty**
+in an appearance moment: *"I have five minutes before an important presentation
+— should I change anything?"*
 
-## 2 bis. La chaîne de décision
+## 2 bis. The decision chain
 
 ```
 MOMENT → CURRENT LOOK → CONTEXTUAL FIT → FIT / MISMATCH → ONE CHANGE → VTO → ACT
 ```
 
-L'étape **CONTEXTUAL FIT** précède le changement, et ce n'est pas un détail
-d'ordonnancement : le produit répond d'abord *« ce look va-t-il ici ? »*, et
-seulement ensuite *« que changer ? »*. Trois verdicts :
+The **CONTEXTUAL FIT** step precedes the change, and that is not a sequencing
+detail: the product first answers *"does this look work here?"*, and only then
+*"what should change?"*. Three verdicts:
 
-| État | Ce que l'écran dit | Suite |
+| State | What the screen says | Next |
 |---|---|---|
-| `FIT` | You're good to go. | aucun changement, aucun VTO |
-| `ALMOST_THERE` | Almost there. + l'élément en cause | ONE CHANGE |
+| `FIT` | You're good to go. | no change, no try-on |
+| `ALMOST_THERE` | Almost there. + the piece at fault | ONE CHANGE |
 | `MISMATCH` | This doesn't fit the moment. | ONE CHANGE |
 
-Le verdict ne nomme un élément que s'il se détache réellement du reste. Quand
-toutes les pièces sont à égalité — cas d'une tenue non décrite — il le dit sans
-désigner personne : le produit s'interdit d'inventer ce qu'il n'a pas observé.
+The verdict names an element only when one genuinely stands out from the rest.
+When every piece is equal — the case for an undescribed outfit — it says so
+without pointing at anyone: the product refuses to invent what it has not
+observed.
 
-**Contextuel** veut dire que la même tenue est jugée différemment selon le
-moment. Dix occasions sont couvertes, chacune avec son propre profil d'exigence :
-entretien, présentation, rendez-vous, affaires, événement, **mariage**,
-**conférence**, **dîner**, **voyage**, autre.
+**Contextual** means the same outfit is judged differently depending on the
+moment. Ten occasions are covered, each with its own demand profile: interview,
+presentation, date, business, event, **wedding**, **conference**, **dinner**,
+**travel**, other.
 
-## 3. Ce que ONE CHANGE veut dire
+## 3. What ONE CHANGE actually means
 
-Ce n'est pas « recommander une veste ». C'est une **contrainte produit** :
+It is not "recommend one jacket". It is a **product constraint**:
 
-> Quelle est la plus petite intervention significative à plus forte valeur
-> attendue pour ce moment précis ?
+> What is the smallest meaningful intervention with the highest expected value
+> for this specific moment?
 
-L'espace d'intervention comporte trois gestes, pas un seul : **changer** une
-pièce, en **ajouter** une qui manque, en **retirer** une de trop. Un retrait ne
-demande aucun essayage — il n'y a rien à mettre, seulement quelque chose à
-enlever — et le parcours saute donc l'étape VTO.
+The intervention space holds three gestures, not one: **change** a piece,
+**add** one that's missing, **remove** one too many. A removal needs no try-on —
+there is nothing to put on, only something to take off — so the journey skips
+the VTO step.
 
-Deux issues légitimes : **CHANGE** ou **NO CHANGE**. Un bon moteur de décision doit
-pouvoir décider qu'aucune intervention ne vaut la peine — sinon ce n'est pas un
-moteur de décision, c'est un générateur de recommandations.
+Two legitimate outcomes: **CHANGE** or **NO CHANGE**. A good decision engine
+must be able to decide that no intervention is worth making — otherwise it is
+not a decision engine, it is a recommendation generator.
 
-## 4. Rôle de YouCam
+## 4. YouCam's role
 
-L'innovation n'est **pas** « Skin AI + VTO ». C'est le moteur d'intervention qui
-se limite délibérément à un seul changement à forte valeur. La contrainte crée la
-différenciation.
+The innovation is **not** "Skin AI + VTO". It is the intervention engine that
+deliberately limits itself to a single high-value change. The constraint creates
+the differentiation.
 
 ```
-Skin AI      informe la décision   (signaux visuels sur l'apparence actuelle)
-Apparel VTO  prouve la décision    (before / after de l'intervention retenue)
+Skin AI      informs the decision   (visual signals about the current appearance)
+Apparel VTO  proves the decision    (before / after of the chosen intervention)
 ```
 
-## 5. Où cela vit dans le code
+## 5. Where each rule lives in the code
 
-| Règle du positionnement | Où elle est appliquée | Où elle est vérifiée |
+| Positioning rule | Where it is applied | Where it is verified |
 |---|---|---|
-| 1 — jamais un styliste | `packages/config` (`PRODUCT`, `NOT_THIS`), copie des écrans | — |
-| 2 — l'innovation n'est pas Skin AI + VTO | `README.md` §6, `docs/ONE_CHANGE_ENGINE.md` | — |
-| 3 — jamais une liste de recommandations | moteur : une seule action retournée ; « Try another » échange la pièce, pas la décision | `test_engine_scenarios.py`, `test_try_another.py`, `compare.test.tsx` |
-| — le fit précède le changement | `engines/one_change/fit.py`, écran `/one-change` | `test_contextual_fit.py`, `verdict.test.tsx` |
-| — aucune occasion ne fait tomber le moteur | tables complétées pour les dix occasions | `test_contextual_fit.py` (paramétré sur `Occasion`) |
-| 4 — toujours rattaché à un moment et un objectif | `MomentSpec` obligatoire avant l'analyse | machine à états, `test_state_machine.py` |
-| 5 — préserver le reste du look | champ `keep` + registre visuel | `test_contract_shapes.py` |
-| 6 — toujours une raison | `explanation.py`, dérivée des facteurs dominants réels | `test_engine_scenarios.py` |
-| 7 — NO CHANGE autorisé | politique de seuils et de marge | `test_engine_scenarios.py`, `test_api_flow.py` |
-| 8 — le VTO est une preuve | VTO uniquement pour le gagnant, jamais pendant le scoring | `test_idempotency_and_units.py` |
-| 9 — la confiance de décision prime | `confidence` exposée en low/medium/high | `test_contract_shapes.py` |
-| 10 — ne rien ajouter qui dilue l'idée | voir ci-dessous | revue |
+| 1 — never a stylist | `packages/config` (`PRODUCT`, `NOT_THIS`), screen copy | — |
+| 2 — the innovation is not Skin AI + VTO | `README.md` §6, `docs/ONE_CHANGE_ENGINE.md` | — |
+| 3 — never a list of recommendations | engine returns a single action; "Try another" swaps the piece, not the decision | `test_engine_scenarios.py`, `test_try_another.py`, `compare.test.tsx`, `one-change.test.tsx` |
+| 4 — always tied to a moment and a goal | `MomentSpec` required before analysis | state machine, `test_state_machine.py` |
+| 5 — preserve the rest of the look | `keep` field and visual ledger | `test_contract_shapes.py`, `test_contextual_fit.py` |
+| 6 — always give a reason | `explanation.py`, derived from the factors that actually dominated | `test_engine_scenarios.py` |
+| 7 — NO CHANGE allowed | threshold and margin policy | `test_engine_scenarios.py`, `test_api_flow.py` |
+| 8 — VTO is proof | try-on only for the winner, never during scoring | `test_idempotency_and_units.py` |
+| 9 — decision confidence first | `confidence` exposed as low/medium/high | `test_contract_shapes.py` |
+| 10 — add nothing that dilutes the idea | see below | review |
+| — the fit precedes the change | `engines/one_change/fit.py`, `/one-change` screen | `test_contextual_fit.py`, `verdict.test.tsx` |
+| — no occasion may crash the engine | tables completed for all ten occasions | `test_contextual_fit.py`, parameterised over `Occasion` |
 
-## 6. Ce qu'on n'ajoutera pas
+## 6. What will not be added
 
-Gestion de garde-robe · catalogues produit · agent conversationnel · flot continu
-de recommandations · tableaux de bord · fonctions sociales · personnalisation
-excessive · agents IA supplémentaires.
+Wardrobe management · product catalogues · a chatbot · an endless stream of
+recommendations · dashboards · social features · excessive personalisation ·
+additional AI agents.
 
-**La contrainte est le produit.** Si une fonctionnalité ne renforce pas
-`FIT THE MOMENT → FIND THE MISMATCH → ONE CHANGE → PROVE IT → MOVE FORWARD`,
-elle doit être retirée.
+**The constraint is the product.** If a feature does not reinforce
+`FIT THE MOMENT → FIND THE MISMATCH → ONE CHANGE → PROVE IT → MOVE FORWARD`, it
+must be removed.
 
-Principe non négociable : **on ne redessine pas la personne, on corrige l'écart.**
+Non-negotiable principle: **don't redesign the person, fix the mismatch.**
 
-## 7. Impact — formulation prudente
+## 7. Impact — stated carefully
 
-Positionner l'impact sur la **confiance de décision** : sous pression temporelle,
-les gens n'ont pas besoin de plus d'inspiration, ils ont besoin de savoir quoi
-faire ensuite.
+Frame impact around **decision confidence**: under time pressure, people don't
+need more inspiration, they need to know what to do next.
 
-Extension retail plausible : incertitude client → ONE CHANGE → preuve visuelle →
-confiance de décision accrue → conversion potentielle.
+A plausible retail extension: customer uncertainty → ONE CHANGE → visual proof →
+higher decision confidence → potential conversion.
 
-Ne **pas** faire de « la réduction des retours produit » la revendication
-principale : nous n'en avons pas la preuve.
+Do **not** make "reducing product returns" the primary claim: we have no
+evidence for it.
 
-## 8. Ce qu'un jury doit retenir
+## 8. What a judge should take away
 
-> « Cette IA a pris une décision à ma place. »
+> "That AI made a decision for me."
 
-Et non : « cette application appelle une API de VTO. »
+Not: "that app calls a try-on API."
 
-Les trois moments visuels mémorables : **CHANGE THE JACKET** → **BEFORE / AFTER**
-→ **EVERYTHING ELSE STAYS**.
+The three memorable visual moments: **ALMOST THERE** → **BEFORE / AFTER** →
+**EVERYTHING ELSE STAYS**.

@@ -1,34 +1,34 @@
-# Notice — ressources tierces
+# Notice — third-party resources
 
 ## Code
 
-MIRROR OPS est distribué sous licence MIT (voir `LICENSE`).
+MIRROR OPS is distributed under the MIT licence (see `LICENSE`).
 
-## Services tiers
+## Third-party services
 
-Le produit appelle les API **YouCam / Perfect Corp** (Skin AI, Apparel VTO).
-Ces services relèvent de leurs propres conditions d'utilisation. Aucune clé
-n'est incluse dans ce dépôt : la configuration se fait par variable
-d'environnement, côté serveur uniquement.
+The product calls the **YouCam / Perfect Corp** APIs (Skin AI, Apparel VTO).
+Those services are governed by their own terms of use. No key is included in
+this repository: configuration happens through environment variables,
+server-side only.
 
-## Visuels du catalogue
+## Catalogue visuals
 
-Les images de `apps/api/app/assets/garments/` sont **générées
-programmatiquement** par ce projet : des aplats de quelques couleurs, sans
-aucun contenu tiers. Elles servent de repli hors ligne et ne conviennent pas à
-un essayage réel — voir `scripts/import_garments.py` pour les remplacer.
+The images in `apps/api/app/assets/garments/` are **generated programmatically**
+by this project: flat shapes of a few colours, containing no third-party
+content. They serve as an offline fallback and are unsuitable for a real
+try-on — see `scripts/import_garments.py` to replace them.
 
-Si vous importez des photographies, assurez-vous d'en détenir les droits. Le
-jeu **Clothing dataset** (`agrigorev/clothing-dataset-full`) est publié sous
-CC0 et convient à une diffusion publique.
+If you import photographs, make sure you hold the rights. The **Clothing
+dataset** (`agrigorev/clothing-dataset-full`) is published under CC0 and is
+suitable for public distribution.
 
-## Polices
+## Fonts
 
-Archivo, Fraunces et JetBrains Mono sont chargées depuis Google Fonts et
-distribuées sous SIL Open Font License. Aucun fichier de police n'est
-redistribué dans ce dépôt.
+Archivo, Fraunces and JetBrains Mono are loaded from Google Fonts and
+distributed under the SIL Open Font License. No font file is redistributed in
+this repository.
 
 ## Logo
 
-`MIRROR OPS` et son symbole appartiennent à leur auteur et ne sont pas couverts
-par la licence MIT du code.
+`MIRROR OPS` and its symbol belong to their author and are not covered by the
+MIT licence applying to the code.

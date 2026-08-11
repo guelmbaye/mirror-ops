@@ -1,11 +1,11 @@
-# Contrat d'API MIRROR OPS
+# MIRROR OPS API contract
 
-Base : `/api/v1` · JSON · images en `multipart/form-data` · session anonyme.
-Schéma complet : `docs/openapi.json`, Swagger : `/docs`, ReDoc : `/redoc`.
+Base: `/api/v1` · JSON · images as `multipart/form-data` · anonymous session.
+Full schema: `docs/openapi.json`, Swagger: `/docs`, ReDoc: `/redoc`.
 
 > The API should expose **decisions**, not implementation details.
 
-## Parcours
+## Journey
 
 ```
 POST /sessions
@@ -16,7 +16,7 @@ POST /sessions
                   → GET /sessions/{id}
 ```
 
-Un appel hors séquence renvoie `409 INVALID_STATE`.
+Any out-of-order call returns `409 INVALID_STATE`.
 
 ## POST /sessions → 201
 
@@ -30,15 +30,19 @@ Un appel hors séquence renvoie `409 INVALID_STATE`.
 {"session_id": "uuid", "occasion": "presentation", "goal": "professional", "time_available": "<5m"}
 ```
 
-`occasion` : `interview · presentation · date · business · event · wedding ·
+`occasion`: `interview · presentation · date · business · event · wedding ·
 conference · dinner · travel · other`
-`goal` : `confident · professional · approachable · elegant · expressive`
-`time_available` : `<5m · 5_15m · 15_30m · 30m_plus`
+`goal`: `confident · professional · approachable · elegant · expressive`
+`time_available`: `<5m · 5_15m · 15_30m · 30m_plus`
+
+A session carries **one** moment. Posting again updates it rather than creating
+a second: going back to correct the occasion must change the outcome, not race
+against a duplicate.
 
 ## POST /appearance/analyze → 201 *(multipart)*
 
-Champs : `session_id` (requis), `image` (requis), `outfit` (JSON optionnel), `moment_id` (optionnel).
-En-tête optionnel : `Idempotency-Key`.
+Fields: `session_id` (required), `image` (required), `outfit` (optional JSON),
+`moment_id` (optional). Optional header: `Idempotency-Key`.
 
 ```json
 {
@@ -48,17 +52,26 @@ En-tête optionnel : `Idempotency-Key`.
 }
 ```
 
-Tous les champs numériques sont facultatifs. Absents → a priori neutre **et** confiance
-de décision réduite : le produit ne prétend jamais avoir mesuré ce qu'il n'a pas mesuré.
+Every numeric field is optional. When absent, MIRROR OPS applies a neutral prior
+**and** lowers decision confidence: the product never claims to have measured
+what it hasn't.
 
-Réponse : `analysis_id`, `appearance` (6 dimensions 0–1), `skin`, `skin_source`,
-`skin_simulated`, `element_suitability`, `image_quality`, `data_confidence`, `image_url`.
+The photo is straightened according to its EXIF orientation before anything else
+happens. A phone portrait stored as landscape would otherwise be analysed
+sideways — an undetectable face for Skin AI, an unreadable pose for the try-on.
+
+Response: `analysis_id`, `appearance` (6 dimensions 0–1), `skin`, `skin_source`,
+`skin_simulated`, `element_suitability`, `image_quality`, `data_confidence`,
+`image_url`.
+
+`skin_source` is `unavailable_no_face` when no usable face was found in the
+photo. The journey continues without a skin signal — Skin AI informs the
+decision, it does not make it.
 
 ## POST /one-change/evaluate → 201
 
-Corps : `session_id` (+ `moment_id` / `analysis_id` optionnels).
-Réponse : l'objet `recommendation` (voir README §5), qui porte désormais le
-verdict d'adéquation :
+Body: `session_id` (+ optional `moment_id` / `analysis_id`).
+Response: the `recommendation` object, which carries the fit verdict:
 
 ```json
 "fit": {
@@ -70,68 +83,83 @@ verdict d'adéquation :
 }
 ```
 
-`state` vaut `FIT`, `ALMOST_THERE` ou `MISMATCH`. `weakest_element` reste `null`
-quand aucun élément ne se détache : le produit ne désigne pas un coupable qu'il
-n'a pas observé.
+`state` is `FIT`, `ALMOST_THERE` or `MISMATCH`. `weakest_element` stays `null`
+when no element genuinely stands out: the product does not name a culprit it has
+not observed.
 
-`requires_vto = false` quand l'action est `NO_CHANGE` **ou** `REMOVE_ACCESSORY` —
-on ne prouve pas une soustraction avec un catalogue de vêtements.
+`is_addition` is `true` when the target piece was absent — the interface must
+then write "Add", not "Change", wherever it names the intervention. The verb
+comes from the backend, never from parsing the label.
+
+`suggested_garment` names the piece the proof will use, so the button can say
+what it will show without offering a catalogue to browse.
+
+`requires_vto` is `false` when the action is `NO_CHANGE` **or**
+`REMOVE_ACCESSORY` — you don't prove a subtraction with a garment catalogue.
 
 ## POST /vto/generate → 201
 
-Corps : `session_id`, `recommendation_id?`, `garment_asset_id?`. En-tête `Idempotency-Key` recommandé.
+Body: `session_id`, `recommendation_id?`, `garment_asset_id?`. `Idempotency-Key`
+recommended.
 
 ```json
 {
   "id": "uuid", "status": "completed", "action": "CHANGE_JACKET", "garment_id": "jacket_01",
   "provider": "youcam_apparel_vto", "simulated": false,
-  "before_image_url": "…", "result_image_url": "…", "latency_ms": 4210,
+  "before_image_url": "…", "result_image_url": "…", "latency_ms": 13003,
   "created_at": "2026-08-01T18:02:30Z"
 }
 ```
 
-`409 VTO_NOT_APPLICABLE` si la décision est `NO_CHANGE`.
+`409 VTO_NOT_APPLICABLE` when the decision is `NO_CHANGE`.
 
-## GET /sessions/{id}
-
-Retourne `session`, `moment`, `analysis`, `recommendation`, `vto` : l'écran final se
-reconstruit en une seule requête (refresh, recovery, démo).
+Any failure carries `garment_source` — `catalog` or `uploaded` — and
+`garment_id`. That is the first thing to read: it says at a glance whether the
+shipped catalogue is at fault, or whether to look elsewhere.
 
 ## POST /garments/upload → 201 *(multipart)*
 
-Champs : `session_id`, `image`. Renvoie `{id, width, height, size_bytes}`.
-L'`id` s'utilise tel quel comme `garment_asset_id` sur `POST /vto/generate`.
+Fields: `session_id`, `image`. Returns `{id, width, height, size_bytes}`. The
+`id` is used directly as `garment_asset_id` on `POST /vto/generate`.
 
-La photo est normalisée comme celles du catalogue (fond blanc, RGB, JPEG, côté
-long ≥ 1024 px), rangée avec les autres médias temporaires de la session, et
-supprimée à expiration. Une pièce n'est visible que depuis la session qui l'a
-téléversée.
+The photo is normalised like the catalogue's (white background, RGB, JPEG, long
+side ≥ 1024 px), stored with the session's other temporary media, and deleted on
+expiry. A piece is only reachable from the session that uploaded it.
+
+## GET /sessions/{id}
+
+Returns `session`, `moment`, `analysis`, `recommendation`, `vto`: the final
+screen rebuilds in a single request — refresh, recovery, demo.
 
 ## GET /garments?category=jacket · GET /vto/{id} · GET /media/{key}?exp&sig
 
-Les médias ne sont accessibles que via une URL signée à durée de vie limitée.
+Each garment reports whether its visual is a real photograph or a generated flat
+shape (`"placeholder": true`). Media are only reachable through a signed,
+short-lived URL.
 
-## Erreurs
+## Errors
 
 ```json
 {"error": {"code": "INVALID_IMAGE", "message": "We need a clearer view of your look.", "retryable": true}}
 ```
 
-| Code | HTTP | Sens |
+| Code | HTTP | Meaning |
 |---|---|---|
-| `INVALID_REQUEST` | 400/422 | requête incohérente |
-| `INVALID_IMAGE` | 422 | photo illisible / trop petite |
-| `IMAGE_TOO_LARGE` | 413 | > 10 Mo |
-| `IMAGE_UNSUPPORTED` | 422 | format non supporté |
-| `INVALID_STATE` | 409 | étape sautée |
-| `SESSION_EXPIRED` | 409 | session périmée |
-| `VTO_NOT_APPLICABLE` | 409 | rien à visualiser (`NO_CHANGE`) |
-| `ANALYSIS_FAILED` | 502 | Skin AI indisponible |
-| `VTO_FAILED` / `VTO_TIMEOUT` | 502 / 504 | aperçu impossible |
-| `PROVIDER_UNAVAILABLE` | 502 | provider hors service / quota |
-| `RATE_LIMITED` | 429 | trop d'appels |
-| `MEDIA_LINK_EXPIRED` | 410 | URL signée périmée |
-| `NOT_FOUND` | 404 | ressource inconnue |
-| `INTERNAL_ERROR` | 500 | erreur interne |
+| `INVALID_REQUEST` | 400/422 | inconsistent request, or no outfit declared |
+| `INVALID_IMAGE` | 422 | unreadable or too small a photo |
+| `IMAGE_TOO_LARGE` | 413 | over 10 MB |
+| `IMAGE_UNSUPPORTED` | 422 | unsupported format |
+| `INVALID_STATE` | 409 | step skipped |
+| `SESSION_EXPIRED` | 409 | session expired |
+| `VTO_NOT_APPLICABLE` | 409 | nothing to visualise (`NO_CHANGE`) |
+| `ANALYSIS_FAILED` | 502 | Skin AI unavailable |
+| `VTO_FAILED` / `VTO_TIMEOUT` | 502 / 504 | preview impossible |
+| `PROVIDER_UNAVAILABLE` | 502 | provider down or out of quota |
+| `RATE_LIMITED` | 429 | too many calls |
+| `MEDIA_LINK_EXPIRED` | 410 | signed URL expired |
+| `NOT_FOUND` | 404 | unknown resource |
+| `INTERNAL_ERROR` | 500 | internal error |
 
-Chaque réponse porte un en-tête `X-Request-ID` (repris de la requête si fourni).
+Every response carries an `X-Request-ID` header (echoed from the request when
+supplied). In `APP_ENV=development`, provider failures also carry a `details`
+object with the exact cause — production keeps the contract opaque.

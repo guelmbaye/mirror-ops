@@ -2,70 +2,69 @@
 
 **FIT THE MOMENT. ONE CHANGE.**
 
-MIRROR OPS est un **moteur de décision d'apparence contextuel**. Il comprend le moment
-que vous vivez, lit votre look actuel, identifie **la seule** intervention qui vaut la
-peine — ou décide qu'il n'y en a aucune — et la prouve visuellement avant que vous
-n'agissiez.
+MIRROR OPS is a **contextual appearance decision engine**. It reads the moment
+you're about to walk into, weighs the look you're already wearing, identifies
+**the single** intervention worth making — or decides none is — and proves it
+visually before you act.
 
 > *Don't redesign your look. Fix the mismatch.*
 
-La question du produit tient en cinq mots : **« Will this look work here? »**
-La même tenue peut convenir à un dîner et détonner à un mariage. D'autres outils
-**constatent** votre apparence et vous rendent des options. MIRROR OPS **décide**.
+The product's question is five words: **"Will this look work here?"** The same
+outfit can be right for a dinner and wrong for a wedding. Other tools **check**
+your appearance and hand you options. MIRROR OPS **decides**.
 
 ```
 CHECK YOUR LOOK   ≠   DECIDE WHAT IS WORTH CHANGING
 ```
 
-Positionnement complet et règles non négociables : [`docs/POSITIONING.md`](docs/POSITIONING.md).
-Mise en production sur `mirror-ops.vylantic.com` : [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-Revue produit, UX et business — constats mesurés, corrections et arbitrages
-ouverts : [`docs/PRODUCT_REVIEW.md`](docs/PRODUCT_REVIEW.md).
-Dossier de soumission au hackathon YouCam : [`docs/SUBMISSION.md`](docs/SUBMISSION.md).
+Full positioning and non-negotiable rules: [`docs/POSITIONING.md`](docs/POSITIONING.md).
+Product, UX and business review — measured findings and open trade-offs:
+[`docs/PRODUCT_REVIEW.md`](docs/PRODUCT_REVIEW.md).
+Hackathon submission kit: [`docs/SUBMISSION.md`](docs/SUBMISSION.md).
+Production deployment, in French: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-Ce dépôt contient l'implémentation complète : le backend FastAPI (`apps/api`)
-et l'interface Next.js (`apps/web`), reliés par un contrat TypeScript partagé
-(`packages/types`).
+This repository holds the complete implementation: the FastAPI backend
+(`apps/api`) and the Next.js interface (`apps/web`), joined by a shared
+TypeScript contract (`packages/types`).
 
 ---
 
-## 1. Ce que fait le produit
+## 1. What the product does
 
 ```
   MOMENT        →  CURRENT LOOK   →  CONTEXTUAL FIT  →  ONE CHANGE  →  PROOF     →  ACT
-  occasion,        photo +           FIT / ALMOST /     le levier      YouCam       vous
-  objectif,        YouCam Skin AI    MISMATCH           décisif        VTO          partez
-  temps
+  occasion,        photo +           FIT / ALMOST /     the decisive   YouCam       you
+  goal,            YouCam Skin AI    MISMATCH           lever          VTO          leave
+  time
 ```
 
-L'étape **CONTEXTUAL FIT** précède le changement, et cet ordre *est* le
-positionnement : le produit répond d'abord « ce look va-t-il ici ? », ensuite
-seulement « que changer ? ». Trois verdicts — `FIT` (« You're good to go »),
-`ALMOST_THERE` (« Almost there », avec l'élément en cause nommé), `MISMATCH`.
+**CONTEXTUAL FIT** comes before the change, and that order *is* the positioning:
+the product first answers "does this look work here?", and only then "what
+should change?". Three verdicts — `FIT` ("You're good to go"), `ALMOST_THERE`
+("Almost there", naming the piece that holds it back), `MISMATCH`.
 
-La question n'est pas *« quelle tenue porter ? »* mais *« dois-je changer quelque chose —
-et si oui, quoi ? »*. Le moteur peut aussi répondre **NO_CHANGE**, sans consommer de VTO :
-un moteur de décision qui ne peut pas décider de ne rien faire n'est pas un moteur de
-décision.
+The question isn't *"what should I wear?"* but *"should I change anything — and
+if so, what?"*. The engine can answer **NO_CHANGE**, consuming no try-on credit:
+a decision engine that cannot decide to do nothing isn't a decision engine.
 
-Skin AI **informe** la décision. Apparel VTO la **prouve**. Une panne du premier
-ne peut pas interrompre le parcours : la décision se prend sans lui, en le disant. L'innovation n'est pas la
-combinaison de ces deux API — c'est un moteur d'intervention qui se limite délibérément
-à un seul changement à forte valeur. **La contrainte est le produit** — on ne
-redessine pas la personne, on corrige l'écart.
+Skin AI **informs** the decision. Apparel VTO **proves** it. A failure of the
+first cannot interrupt the journey — the decision is made without it, and says
+so. The innovation is not the combination of those two APIs: it is an
+intervention engine that deliberately limits itself to one high-value change.
+**The constraint is the product** — don't redesign the person, fix the mismatch.
 
-L'intervention peut prendre trois formes : **changer** une pièce, en **ajouter**
-une qui manque, en **retirer** une de trop. Un retrait ne demande aucun essayage.
+An intervention takes three forms: **change** a piece, **add** one that's
+missing, **remove** one too many. A removal needs no try-on.
 
 ---
 
 ## 2. Architecture
 
-Monolithe modulaire, un seul déployable (Doc 07).
+A modular monolith, one deployable.
 
 ```
                     Browser / Next.js
-                           │  HTTPS  (jamais de clé YouCam côté client)
+                           │  HTTPS  (the YouCam key never reaches the client)
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                     FastAPI — MIRROR OPS API                 │
@@ -73,75 +72,75 @@ Monolithe modulaire, un seul déployable (Doc 07).
 │   api/routes ──► services ──► engines        integrations    │
 │                     │            │                │          │
 │                     │       ONE CHANGE       YouCam adapters │
-│                     │      (domaine pur)      Skin AI · VTO  │
+│                     │      (pure domain)      Skin AI · VTO  │
 │                     ▼                                        │
-│              PostgreSQL  +  stockage objet temporaire        │
+│              PostgreSQL  +  temporary object storage         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Règle de dépendance** : `api → services → engines / integrations → infrastructure`.
-Le moteur ONE CHANGE n'importe ni FastAPI, ni SQLAlchemy, ni HTTP : il se teste sans
-réseau, sans base et sans YouCam.
+**Dependency rule**: `api → services → engines / integrations → infrastructure`.
+The ONE CHANGE engine imports neither FastAPI, nor SQLAlchemy, nor HTTP: it is
+tested without network, database or YouCam.
 
 ```
 mirror-ops/
 ├── apps/
-│   └── api/                         # backend FastAPI (ce qui est livré ici)
-│       ├── app/
-│       │   ├── api/v1/routes/       # sessions, moments, appearance, one_change, vto, media, health
-│       │   ├── core/                # config, erreurs, logging, sécurité, rate limit
-│       │   ├── db/                  # base déclarative + session async
-│       │   ├── models/              # SQLAlchemy + enums partagés
-│       │   ├── schemas/             # contrat public Pydantic
-│       │   ├── engines/
-│       │   │   ├── one_change/      # ★ moteur de décision (domaine pur)
-│       │   │   └── appearance/      # estimateur de contexte d'apparence
-│       │   ├── integrations/youcam/ # client, adapters, mappers, mocks locaux
-│       │   ├── services/            # orchestration, stockage, idempotence, cleanup
-│       │   └── assets/garments/     # petit catalogue contrôlé + visuels
-│       └── tests/                   # 72 tests (moteur, API, sécurité, adapters)
-│   └── web/                         # interface Next.js (App Router, TypeScript)
+│   ├── api/                         # FastAPI backend
+│   │   ├── app/
+│   │   │   ├── api/v1/routes/       # sessions, moments, appearance, one_change, vto, media, health
+│   │   │   ├── core/                # config, errors, logging, security, rate limit
+│   │   │   ├── db/                  # declarative base, async session, additive schema sync
+│   │   │   ├── models/              # SQLAlchemy + shared enums
+│   │   │   ├── schemas/             # public Pydantic contract
+│   │   │   ├── engines/
+│   │   │   │   ├── one_change/      # ★ decision engine (pure domain)
+│   │   │   │   └── appearance/      # appearance context estimator
+│   │   │   ├── integrations/youcam/ # client, adapters, mappers, offline providers
+│   │   │   ├── services/            # orchestration, storage, idempotency, cleanup
+│   │   │   └── assets/garments/     # small controlled catalogue
+│   │   └── tests/                   # 233 tests
+│   └── web/                         # Next.js interface (App Router, TypeScript)
 │       └── src/
-│           ├── app/                 # 7 écrans : / moment look analyzing one-change compare ready
-│           ├── components/          # Stage, Verdict ★, BeforeAfter, ChoiceGroup, Notice
-│           └── lib/                 # client API typé, session, photo, formats
-├── packages/types/                  # types TypeScript du contrat d'API
-├── packages/config/                 # libellés produit partagés
-├── scripts/                         # demo_flow, calibrate_engine, cleanup, export_openapi
-├── docs/                            # architecture, moteur, intégration, API, runbook démo
+│           ├── app/                 # 7 screens: / moment look analyzing one-change compare ready
+│           ├── components/          # Stage, Verdict ★, BeforeAfter, CameraCapture, Notice
+│           └── lib/                 # typed API client, session, photo, formats
+├── packages/types/                  # TypeScript mirror of the API contract
+├── packages/config/                 # shared product copy
+├── scripts/                         # audit, demo, garment import, VTO probe, cleanup
+├── docs/                            # positioning, engine, YouCam, API, demo, deployment
 ├── docker-compose.yml
-├── .env                             # variables docker-compose (fourni, prêt à l'emploi)
-├── apps/api/.env                    # config backend (fourni, mode mock)
-└── apps/web/.env.local              # URL de l'API pour l'interface (fourni)
+├── .env                             # docker-compose variables (shipped, ready to use)
+├── apps/api/.env                    # backend config (shipped, mock mode)
+└── apps/web/.env.local              # API URL for the interface (shipped)
 ```
 
 ---
 
-## 3. Démarrage rapide (2 minutes, sans YouCam)
+## 3. Quick start (2 minutes, no YouCam account needed)
 
-Le mode `mock` fait tourner **tout le parcours** hors ligne, sans consommer une seule unité API.
+`mock` mode runs **the whole journey** offline, without consuming a single API
+credit.
 
 ```bash
 cd apps/api
 python -m venv .venv && source .venv/bin/activate      # Python 3.11+
 pip install -r requirements-dev.txt
 
-# Après toute mise à jour du dépôt, relancer cette commande : de nouvelles
-# dépendances peuvent être apparues (par ex. `cryptography`, requise par
-# l'authentification YouCam en mode live).
+# Re-run this after every repository update: new dependencies may have appeared
+# (for example `cryptography`, required by live YouCam authentication).
 
 uvicorn app.main:app --reload --port 8000
 ```
 
-Puis l'interface, dans un second terminal :
+Then the interface, in a second terminal:
 
 ```bash
 npm install                    # Node 18.18+
 npm run dev                    # http://localhost:3000
 ```
 
-Le parcours complet est alors utilisable dans le navigateur. Pour le vérifier
-sans interface — ou pour répéter la démonstration — un troisième terminal :
+The full journey is now usable in the browser. To check it without the
+interface — or to rehearse the demo — a third terminal:
 
 ```bash
 python scripts/demo_flow.py
@@ -153,168 +152,151 @@ python scripts/demo_flow.py
   ✓ appearance + skin AI           826 ms
   ✓ ONE CHANGE                      18 ms
   ┌─────────────────────────────────────────────
+  │ FIT          Almost there.  (62/100)
   │ ONE CHANGE   Change the jacket
-  │ Impact       71/100
-  │ Confidence   medium
+  │ Impact       71/100 · confidence medium
   │ Keep         accessories, bottom, shoes, top
   └─────────────────────────────────────────────
   ✓ apparel VTO                    287 ms
-  Parcours complet : 1372 ms
+  Full journey: 1372 ms
 ```
 
-Documentation interactive : <http://localhost:8000/docs> · schéma : `docs/openapi.json`.
+Interactive docs: <http://localhost:8000/docs> · schema: `docs/openapi.json`.
 
-### Avec Docker (tout compris)
+### On Windows (PowerShell)
 
-```bash
-docker compose up --build      # interface :3000 · API :8000 · PostgreSQL :5432
-```
-
----
-
-### Sous Windows (PowerShell)
-
-Le `Makefile` ne sert à rien sans outillage supplémentaire. `scripts\mirror-ops.ps1`
-couvre les mêmes tâches et trouve seul l'interpréteur du venv, quel que soit le
-répertoire courant :
+The `Makefile` is useless there without extra tooling. `scripts\mirror-ops.ps1`
+covers the same tasks and locates the venv interpreter on its own:
 
 ```powershell
 .\scripts\mirror-ops.ps1 help
 .\scripts\mirror-ops.ps1 dev-api          # http://localhost:8000
 .\scripts\mirror-ops.ps1 dev-web          # http://localhost:3000
-.\scripts\mirror-ops.ps1 test
-.\scripts\mirror-ops.ps1 health
+.\scripts\mirror-ops.ps1 audit
 ```
 
-Si l'exécution de scripts est bloquée :
+If script execution is blocked:
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+Two syntax traps: PowerShell does not expand `~` for native executables — use
+`$HOME` — and paths take backslashes.
+
+### With Docker
+
+```bash
+docker compose up --build      # web :3000 · api :8000 · PostgreSQL :5432
 ```
-
-Deux différences de syntaxe qui piègent : PowerShell ne développe pas `~` pour un
-exécutable natif — utilisez `$HOME` — et les chemins prennent des antislashs.
-
-## 4. Brancher le vrai YouCam
-
-1. Créer le compte YouCam / Perfect Corp, vérifier la clé **et les unités disponibles**.
-2. Tester Skin AI et Apparel VTO dans le Playground, **noter les chemins d'endpoints réels**.
-3. Renseigner dans **`apps/api/.env`** — c'est le seul fichier lu par l'API.
-   Le `.env` racine ne sert qu'à `docker compose` :
-
-```dotenv
-YOUCAM_MODE=live
-YOUCAM_AUTH_MODE=api_key
-YOUCAM_API_KEY=...        # console : https://yce.perfectcorp.com/api-console/en/api-keys/
-YOUCAM_SKIN_TASK_PATH=/s2s/v1.0/task/skin-analysis    # à confirmer selon le compte
-YOUCAM_VTO_TASK_PATH=/s2s/v1.0/task/clothes           # à confirmer selon le compte
-```
-
-4. **Le catalogue, ou la pièce de l'utilisateur.** Deux chemins mènent à une
-   preuve visuelle, et le second ne dépend d'aucun fichier livré :
-
-   - **« Try a piece of your own »**, sur l'écran de décision *et* sur
-     Before/After : la personne
-     photographie la veste qu'elle envisage et la voit sur elle. Rien à
-     installer, rien à préparer. C'est aussi le meilleur usage réel du produit —
-     on hésite rarement devant un catalogue, souvent devant une pièce précise.
-   - **Le catalogue**, qui garantit qu'une preuve existe toujours sans rien
-     demander à l'utilisateur au milieu d'un parcours de 90 secondes.
-
-   Les visuels livrés sont des aplats générés programmatiquement : suffisants
-   pour le mode `mock`, inexploitables par un vrai try-on, qui échoue dessus en
-   `error_editing_failed`.
-
-   ```bash
-   python scripts/check_garments.py                    # ce qui reste à remplacer
-   python scripts/import_garments.py ~/mes-vetements   # importe un dossier
-   python scripts/import_garments.py --id jacket_01 ~/veste.jpg
-   python scripts/import_garments.py catalogue.txt     # depuis un catalogue en ligne
-   ```
-
-   Le manifeste est une ligne par pièce — `identifiant  URL` :
-
-   ```
-   jacket_01   https://votre-cdn/veste-marine.jpg
-   shoes_01    https://votre-cdn/derbies-noires.jpg
-   ```
-
-   Les images sont téléchargées **une fois**, normalisées, puis servies
-   localement : le parcours ne dépend d'aucun hébergeur tiers au moment où
-   cela compte.
-
-   ```powershell
-   .\scripts\mirror-ops.ps1 garments
-   .\scripts\mirror-ops.ps1 import-garments -Path $HOME\Downloads\vetements -DryRun
-   .\scripts\mirror-ops.ps1 import-garments -Path $HOME\Downloads\vetements
-   .\scripts\mirror-ops.ps1 import-garments -Path $HOME\veste.jpg -Id jacket_01
-   ```
-
-   Vos fichiers n'ont pas à porter les noms du catalogue : l'import reconnaît la
-   catégorie depuis le nom, en français comme en anglais — `veste-marine.jpg`,
-   `sneakers white.png`, `chemise blanche.jpeg`, `sac1.jpg`. **Le catalogue
-   grandit tout seul** : si une catégorie est pleine, une nouvelle pièce est
-   créée (`jacket_04`, `shoes_03`…), avec les attributs médians de sa catégorie
-   et sa teinte dominante échantillonnée sur l'image. Ce qui n'est pas reconnu
-   est laissé de côté et nommé ; `--auto` (`-Auto` sous PowerShell) attribue le
-   reste aux emplacements encore libres.
-   Tout est normalisé (fond blanc, RGB, JPEG, côté long ≥ 1024 px) et **écrit
-   dans `apps/api/var/garments/`**, jamais dans le code source : vos photos
-   survivent à toute mise à jour du projet, y compris à une archive
-   décompressée par-dessus. Les visuels livrés servent uniquement de repli.
-
-   Commencez toujours par `--dry-run` : il affiche la correspondance sans écrire.
-
-   Pour isoler une panne d'essayage sans dérouler tout le parcours :
-
-   ```bash
-   python scripts/probe_vto.py ma-photo.jpg jacket_01
-   ```
-
-   ```powershell
-   .\scripts\mirror-ops.ps1 probe -Photo .\ma-photo.jpg -Garment jacket_01
-   ```
-
-   La sonde fait l'appel nu et affiche le code d'erreur du provider.
-
-5. **Redémarrer l'API**, puis vérifier :
-   `curl localhost:8000/api/v1/health/dependencies` → `"youcam": "configured"`.
-   Tant que cette réponse indique `"mock_mode"`, les aperçus resteront marqués
-   « simulated » — le tampon dit la vérité sur ce qui a réellement produit l'image.
-
-Aucun code métier ne change entre `mock` et `live` : seuls les adapters diffèrent.
-Les chemins d'endpoints et les noms de métriques sont **configurables**, parce qu'ils
-dépendent des capacités réellement activées sur le compte.
-
-> **Honnêteté du fallback.** En mode `mock`, les résultats sont marqués `simulated: true`,
-> le provider s'appelle `local_heuristic` / `local_composite`, et l'image porte le filigrane
-> *« SIMULATED PREVIEW — not generated by YouCam »*. Un résultat qui ne vient pas de YouCam
-> ne prétend jamais en venir.
 
 ---
 
-## 5. Contrat d'API
+## 4. Connecting the real YouCam
 
-| Méthode | Route | Rôle |
+1. Create the YouCam / Perfect Corp account and check **remaining credits**.
+2. Create an API key: <https://yce.perfectcorp.com/api-console/en/api-keys/>
+3. Fill in **`apps/api/.env`** — the only file the API reads. The root `.env` is
+   for `docker compose` alone:
+
+   ```dotenv
+   YOUCAM_MODE=live
+   YOUCAM_AUTH_MODE=api_key
+   YOUCAM_API_KEY=...
+   ```
+
+4. **Replace the catalogue visuals, or use the user's own piece.** Two paths
+   lead to visual proof, and the second depends on no shipped file:
+
+   - **"Try a piece of your own"**, on the decision screen *and* on
+     Before/After: the person photographs the jacket they're considering and
+     sees it on themselves. Nothing to install, nothing to prepare. It is also
+     the most realistic use — people hesitate over a specific garment, not over
+     a catalogue.
+   - **The catalogue**, which guarantees proof always exists without asking
+     anything of the user in the middle of a 90-second journey.
+
+   The shipped visuals are programmatically generated flat shapes: fine for
+   `mock`, unusable by a real try-on, which fails on them with
+   `error_editing_failed`.
+
+   ```bash
+   python scripts/check_garments.py                    # what still needs replacing
+   python scripts/import_garments.py ~/my-garments     # import a folder
+   python scripts/import_garments.py --id jacket_01 ~/jacket.jpg
+   python scripts/import_garments.py catalogue.txt     # from an online catalogue
+   ```
+
+   ```powershell
+   .\scripts\mirror-ops.ps1 garments
+   .\scripts\mirror-ops.ps1 import-garments -Path $HOME\Downloads\garments -DryRun
+   .\scripts\mirror-ops.ps1 import-garments -Path $HOME\Downloads\garments
+   ```
+
+   Your files need not carry catalogue names: the importer recognises the
+   category from the filename, in English and French — `navy-jacket.jpg`,
+   `sneakers white.png`, `chemise blanche.jpeg`, `sac1.jpg`. **The catalogue
+   grows on its own**: when a category is full, a new piece is created
+   (`jacket_04`, `shoes_03`…), with the median attributes of its category and
+   its dominant colour sampled from the image. Anything unrecognised is set
+   aside and named; `--auto` (`-Auto` in PowerShell) assigns the rest to the
+   remaining free slots.
+
+   Everything is normalised (white background, RGB, JPEG, long side ≥ 1024 px)
+   and written to **`apps/api/var/garments/`**, never into the source tree: your
+   photos survive any project update, including an archive extracted on top.
+
+   An online catalogue is referenced **at import time** — one line per piece,
+   `id  URL`:
+
+   ```
+   jacket_01   https://your-cdn/navy-jacket.jpg
+   shoes_01    https://your-cdn/black-derbies.jpg
+   ```
+
+   Images are downloaded **once**, normalised, then served locally: the journey
+   never depends on a third-party host at the moment it matters.
+
+   To isolate a try-on failure without running the whole journey:
+
+   ```bash
+   python scripts/probe_vto.py my-photo.jpg jacket_01
+   ```
+
+5. **Restart the API**, then check:
+   `curl localhost:8000/api/v1/health/dependencies` → `"youcam": "configured"`.
+   While that response says `"mock_mode"`, previews stay marked "simulated" —
+   the stamp tells the truth about what produced the image.
+
+No business code changes between `mock` and `live`: only the adapters differ.
+Endpoint paths and metric names are **configurable**, because they depend on
+what is actually enabled on your account.
+
+> **Honest fallback.** In `mock` mode, results carry `simulated: true`, the
+> provider is named `local_heuristic` / `local_composite`, and the image is
+> watermarked *"SIMULATED PREVIEW — not generated by YouCam"*. A result that
+> didn't come from YouCam never pretends it did.
+
+---
+
+## 5. API contract
+
+| Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/api/v1/sessions` | démarrer un parcours anonyme |
-| `POST` | `/api/v1/moments` | occasion + objectif + temps disponible |
-| `POST` | `/api/v1/appearance/analyze` | photo → Skin AI → contexte d'apparence |
-| `POST` | `/api/v1/one-change/evaluate` | **la** recommandation |
-| `POST` | `/api/v1/vto/generate` | preuve visuelle (uniquement pour le gagnant) |
-| `POST` | `/api/v1/garments/upload` | essayer sa propre pièce |
-| `GET` | `/api/v1/vto/{id}` | état / résultat d'un aperçu |
-| `GET` | `/api/v1/sessions/{id}` | tout l'écran final en une requête |
-| `GET` | `/api/v1/garments` | catalogue, avec `placeholder` par pièce |
-| `GET` | `/api/v1/media/{key}` | média temporaire signé |
-| `GET` | `/api/v1/health` · `/health/dependencies` | santé |
+| `POST` | `/api/v1/sessions` | start an anonymous journey |
+| `POST` | `/api/v1/moments` | occasion + goal + time available |
+| `POST` | `/api/v1/appearance/analyze` | photo → Skin AI → appearance context |
+| `POST` | `/api/v1/one-change/evaluate` | **the** recommendation |
+| `POST` | `/api/v1/vto/generate` | visual proof (winner only) |
+| `POST` | `/api/v1/garments/upload` | try a piece of your own |
+| `GET` | `/api/v1/vto/{id}` | preview status / result |
+| `GET` | `/api/v1/sessions/{id}` | the whole final screen in one request |
+| `GET` | `/api/v1/garments` | catalogue, with `placeholder` per piece |
+| `GET` | `/api/v1/media/{key}` | signed, expiring media |
+| `GET` | `/api/v1/health` · `/health/dependencies` | health |
 
-Réponse ONE CHANGE :
+ONE CHANGE response:
 
 ```json
 {
   "recommendation": {
-    "id": "…",
     "action": "CHANGE_JACKET",
     "label": "Change the jacket",
     "score": 71,
@@ -324,220 +306,211 @@ Réponse ONE CHANGE :
     "how": "Keep the rest of your look exactly as it is.",
     "keep": ["accessories", "bottom", "shoes", "top"],
     "impact": {
-      "before": {"professional_presence": 58, "visual_coherence": 64, "confidence_proxy": 64},
-      "after":  {"professional_presence": 74, "visual_coherence": 79, "confidence_proxy": 76},
+      "before": {"professional_presence": 58, "visual_coherence": 64},
+      "after":  {"professional_presence": 72, "visual_coherence": 75},
       "dominant_factors": ["goal_alignment", "context_fit"]
     },
     "requires_vto": true,
+    "is_addition": false,
+    "fit": {
+      "state": "ALMOST_THERE",
+      "score": 62,
+      "headline": "Almost there.",
+      "detail": "Your outfit fits the occasion, but the shoes reduce the level of formality.",
+      "weakest_element": "shoes"
+    },
     "suggested_garment": {"id": "jacket_01", "name": "Structured Neutral Jacket", "category": "jacket"}
   }
 }
 ```
 
-Toutes les erreurs partagent une seule forme :
+Every error shares one shape:
 
 ```json
 {"error": {"code": "INVALID_IMAGE", "message": "We need a clearer view of your look.", "retryable": true}}
 ```
 
-Détail complet : [`docs/API.md`](docs/API.md).
+Full detail: [`docs/API.md`](docs/API.md).
 
 ---
 
-## 6. Le moteur ONE CHANGE
+## 6. The ONE CHANGE engine
 
 ```
-INPUT → Validate → Build Context → Generate Candidates → Score
+INPUT → Validate → Contextual fit → Generate candidates → Score
       → Threshold → Tie-breaker → Winner → Explain → (VTO)
 ```
 
-Score normalisé 0–100, pondérations **configurables** :
+Score normalised 0–100, weights **configurable**:
 
-| Feature | Poids | Question posée |
+| Feature | Weight | Question asked |
 |---|---|---|
-| `goal_alignment` | 0.25 | ce levier sert-il l'objectif ? |
-| `context_fit` | 0.20 | est-il adapté à l'occasion ? |
-| `visual_impact` | 0.20 | le changement se verra-t-il ? |
-| `current_gap` | 0.10 | y a-t-il de la marge sur cette pièce ? |
-| `time_fit` | 0.10 | est-ce réaliste dans le temps disponible ? |
-| `data_confidence` | 0.10 | lisons-nous cet élément de façon fiable ? |
-| `vto_feasibility` | 0.05 | peut-on le montrer avant décision ? |
+| `goal_alignment` | 0.25 | does this lever serve the goal? |
+| `context_fit` | 0.20 | is it right for this occasion? |
+| `visual_impact` | 0.20 | will the change be seen? |
+| `current_gap` | 0.10 | is there room on this piece? |
+| `time_fit` | 0.10 | is it realistic in the time available? |
+| `data_confidence` | 0.10 | do we read this element reliably? |
+| `vto_feasibility` | 0.05 | can we show it before deciding? |
 
-Propriétés garanties (couvertes par des tests) : **une seule** action, déterminisme,
-explication dérivée des facteurs réellement dominants, `NO_CHANGE` possible,
-prise en compte du temps, aucun LLM requis, aucun claim médical.
+Guaranteed properties, each covered by tests: **one** action only, determinism,
+an explanation derived from the factors that actually dominated, `NO_CHANGE`
+possible, time taken into account, no LLM required, no medical claim.
 
-Banc de calibration : `python scripts/calibrate_engine.py`.
-Détail : [`docs/ONE_CHANGE_ENGINE.md`](docs/ONE_CHANGE_ENGINE.md).
+Calibration bench: `python scripts/calibrate_engine.py`.
+Detail: [`docs/ONE_CHANGE_ENGINE.md`](docs/ONE_CHANGE_ENGINE.md).
 
 ---
 
 ## 7. Tests
 
 ```bash
-cd apps/api && python -m pytest -q      # 72 tests
+cd apps/api && python -m pytest -q      # 233 tests
 ```
 
-| Fichier | Couvre |
+| File | Covers |
 |---|---|
-| `test_engine_scenarios.py` | les 5 scénarios du spec + déterminisme, filtrage, seuils |
-| `test_api_flow.py` | parcours complet, NO_CHANGE, catalogue, images servies |
-| `test_api_errors.py` | contrat d'erreur, image corrompue/trop petite/trop lourde, pannes provider |
-| `test_state_machine.py` | transitions impossibles → 409, session expirée, ressources croisées |
-| `test_idempotency_and_units.py` | 1 parcours ≈ 1 analyse + 1 VTO, double-clic neutralisé |
-| `test_youcam_adapter.py` | normalisation multi-format, retries, protocole live simulé |
-| `test_security_privacy.py` | URLs signées, traversal, logs sans secrets, cleanup |
-| `test_contract_shapes.py` | stabilité du contrat public |
-| `test_try_another.py` | changer de pièce ne change jamais la décision (règle 3) |
-| `test_face_crop.py` | le cadrage envoyé à Skin AI satisfait sa contrainte de 60 % |
-| `test_image_orientation.py` | une photo portrait de téléphone n'est jamais traitée couchée |
-| `test_going_back.py` | revenir en arrière et corriger change réellement le résultat |
-| `test_schema_sync.py` | une base existante survit à l'ajout d'un champ |
-| `test_task_failures.py` | un échec de tâche nomme sa cause et guide la reprise |
-| `test_garment_audit.py` | le catalogue s'annonce comme substitution tant qu'il l'est |
-| `test_garment_import.py` | l'import reconnaît les catégories sans exiger de renommage |
-| `test_garment_audit.py` | vos photos priment sur les visuels livrés et survivent aux mises à jour |
-| `test_own_garment.py` | on peut essayer sa propre pièce, isolée par session |
-| `test_decision_gate.py` | le refus nomme ce qui manque : la photo ou la tenue |
-| `test_contextual_fit.py` | le verdict d'adéquation, les dix occasions, et l'interdiction d'inventer un coupable |
+| `test_engine_scenarios.py` | the five documented scenarios, determinism, filtering, thresholds |
+| `test_contextual_fit.py` | the fit verdict, all ten occasions, and the ban on inventing a culprit |
+| `test_api_flow.py` | full journey, NO_CHANGE, catalogue, served images |
+| `test_api_errors.py` | error contract, corrupt/small/oversized images, provider failures |
+| `test_state_machine.py` | impossible transitions → 409, expired session, cross-session resources |
+| `test_idempotency_and_units.py` | one journey ≈ one analysis + one try-on, double-click neutralised |
+| `test_going_back.py` | going back and correcting really changes the outcome |
+| `test_decision_gate.py` | a refusal names what's missing: the photo or the outfit |
+| `test_youcam_adapter.py` | v2 protocol, retries, health→severity inversion |
+| `test_youcam_auth.py` | the RSA `id_token` round-trips, and never leaks the secret |
+| `test_task_failures.py` | a failed task names its cause and guides recovery |
+| `test_face_crop.py` | the crop sent to Skin AI satisfies its 60% constraint |
+| `test_image_orientation.py` | a phone portrait photo is never processed sideways |
+| `test_own_garment.py` | a user can try their own piece, isolated per session |
+| `test_try_another.py` | swapping a piece never changes the decision (rule 3) |
+| `test_garment_audit.py` | the catalogue declares itself a placeholder while it is one; user photos survive updates |
+| `test_garment_import.py` | the importer recognises categories without demanding renames |
+| `test_schema_sync.py` | an existing database survives a new field |
+| `test_security_privacy.py` | signed URLs, path traversal, logs without secrets, cleanup |
+| `test_contract_shapes.py` | public contract stability |
 
-Une pièce absente n'est plus écartée : elle devient une **addition**. Le libellé
-suit la réalité — « Add a jacket » et non « Change the jacket » à quelqu'un qui
-n'en porte pas. Le champ `is_addition` porte cette vérité jusqu'à l'interface :
-le verbe affiché vient du backend, jamais d'une lecture du libellé, pour que le
-titre et le registre ne puissent pas se contredire à l'écran. L'écran *Your look* déclare ce qui est porté ; sans cette
-information, le moteur supposerait toutes les pièces présentes.
-
-Côté interface :
-
-L'audit de bout en bout contrôle le système **assemblé**, dans la configuration
-réelle de la machine — mode YouCam, base, catalogue compris :
+On the interface side:
 
 ```bash
-python scripts/audit_journey.py       # ou : make audit
+npm run test --workspace @mirror-ops/web    # 28 render tests (vitest + jsdom)
+npm run typecheck                           # app and tests, two passes
+npm run build                               # production build
 ```
 
-**L'API doit tourner** : l'audit interroge le système assemblé, pas le code.
-
-```powershell
-.\scripts\mirror-ops.ps1 audit
-```
-
-Il déroule les sept écrans, imprime les données en entrée et en sortie de chaque
-appel, et vérifie 37 invariants : cohérence entre ce qui est déclaré, ce qui
-change et ce qui est gardé ; concordance du verdict d'adéquation et de l'action ;
-accessibilité réelle des médias ; refus qui nomment le bon geste. `FAIL` bloque,
-`WARN` signale ce qui limitera la démonstration. À lancer avant tout
-enregistrement.
+The end-to-end audit checks the **assembled** system, in the machine's real
+configuration — YouCam mode, database and catalogue included:
 
 ```bash
-npm run test --workspace @mirror-ops/web    # tests de rendu (vitest + jsdom)
-npm run typecheck                           # tsc --noEmit, TypeScript strict
-npm run build                               # build de production
+python scripts/audit_journey.py       # or: make audit
 ```
 
-`apps/web/tests/analyzing.test.tsx` monte l'écran d'analyse **sous StrictMode**,
-c'est-à-dire dans les conditions du mode développement où React monte, démonte
-puis remonte chaque composant. Il vérifie que le parcours atteint bien la
-décision, qu'il ne consomme qu'une analyse et un VTO, qu'un échec d'analyse
-donne un état d'erreur exploitable, et qu'une orchestration bloquée est
-rattrapée par relecture de l'état serveur.
+It walks the seven screens, prints the data going in and out of every call, and
+verifies 38 invariants: coherence between what is declared, what changes and
+what is kept; agreement between the fit verdict and the action; media actually
+reachable; refusals that name the right remedy. `FAIL` blocks, `WARN` flags what
+will limit the demo. **The API must be running** — the audit tests the system,
+not the code.
 
 ---
 
-## 8. Sécurité & confidentialité
+## 8. Security & privacy
 
-- Clé YouCam **exclusivement côté serveur** ; le frontend ne parle jamais au provider.
-- Uploads validés (MIME réel, taille, dimensions, décodabilité).
-- Médias servis par **URL signée HMAC + expiration**, jamais publics ; protection contre le path traversal.
-- Logs structurés **assainis** : ni image brute, ni clé, ni credentials.
-- Sessions anonymes à durée de vie limitée ; aucun compte, aucun mot de passe.
-- `expires_at` + `scripts/cleanup.py` suppriment médias et sessions expirés.
-- Aucune réponse brute du provider n'est conservée.
-- Rate limiting basique, CORS restreint, contrat d'erreur sans fuite technique.
-
----
-
-## 9. Positionnement produit
-
-MIRROR OPS n'est ni un styliste IA, ni un assistant d'achat, ni un gestionnaire de
-garde-robe, ni une application de VTO, ni un outil de diagnostic de peau. Ces frontières
-sont tenues dans le code : `packages/config` porte `PRODUCT` et `NOT_THIS`, et la table de
-correspondance règle → test se trouve dans [`docs/POSITIONING.md`](docs/POSITIONING.md) §5.
-
-Le résultat Skin AI est présenté comme une **observation visuelle/cosmétique**, jamais comme
-un diagnostic médical, et n'a qu'une influence bornée sur la décision : il informe le contexte,
-il ne détourne pas la décision vestimentaire. Les scores d'impact sont des heuristiques
-explicables destinées à être calibrées — pas des mesures scientifiques de la confiance humaine.
-
-L'impact est positionné sur la **confiance de décision**. « Réduire les retours produit »
-n'est pas revendiqué : nous n'en avons pas la preuve.
+- The YouCam key stays **server-side only**; the frontend never talks to the
+  provider.
+- Uploads validated (real MIME, size, dimensions, decodability) and straightened
+  according to EXIF orientation.
+- Media served through **signed HMAC URLs with expiry**, never public; path
+  traversal blocked.
+- Structured logs are **sanitised**: no raw image, no key, no credentials.
+- Anonymous, time-limited sessions; no account, no password.
+- `expires_at` plus `scripts/cleanup.py` delete expired media and sessions.
+- No raw provider response is retained.
+- Basic rate limiting, restricted CORS, an error contract with no technical
+  leakage.
 
 ---
 
-## 10. Dépannage
+## 9. Product positioning
 
-| Symptôme | Cause probable | Solution |
+MIRROR OPS is not an AI stylist, a shopping assistant, a wardrobe manager, a
+try-on app, or a skin diagnostic tool. Those boundaries are held in the code:
+`packages/config` carries `PRODUCT` and `NOT_THIS`, and the rule → test mapping
+lives in [`docs/POSITIONING.md`](docs/POSITIONING.md) §5.
+
+Skin AI output is presented as a **visual, cosmetic observation**, never as a
+medical diagnosis, and its influence on the decision is bounded: it informs the
+context, it does not hijack the clothing decision. Impact scores are explainable
+heuristics meant to be calibrated — not scientific measurements of human
+confidence.
+
+Impact is framed around **decision confidence**. "Reduced returns" is not
+claimed: we have no evidence for it.
+
+---
+
+## 10. Troubleshooting
+
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `409 INVALID_STATE` | étape sautée | respecter `moment → analyze → one-change → vto` |
-| `422 INVALID_IMAGE` | photo illisible ou < 320 px | reprendre la photo |
-| `INVALID_REQUEST` sur `/one-change/evaluate` | aucune pièce déclarée | cocher ce que vous portez sur l'écran *Your look* — la photo n'est pas en cause. En `APP_ENV=development`, `details` donne les chiffres exacts |
-| `409 VTO_NOT_APPLICABLE` | la décision est `NO_CHANGE` | comportement normal : rien à prévisualiser |
-| `410 MEDIA_LINK_EXPIRED` | URL signée périmée | relire la session via `GET /sessions/{id}` |
-| `"youcam": "missing_credentials"` | `YOUCAM_MODE=live` sans identifiants | renseigner `apps/api/.env` ou repasser en `mock` |
-| « Simulated preview » alors que `live` est configuré | l'API tourne encore en `mock` | `apps/api/.env` seul fait foi ; redémarrer l'API, puis vérifier `/health/dependencies` → `"youcam": "configured"` |
-| `unable to open database file` | dossier `var/` absent (il est ignoré par git) | plus rien à faire : l'API le recrée au démarrage |
-| `la colonne X n'existe pas` | base persistante antérieure à un nouveau champ | plus rien à faire : l'API ajoute les colonnes manquantes au démarrage. Pour l'appliquer à part : `python scripts/sync_schema.py` |
-| `error_editing_failed` avec `"garment_source": "catalog"` | catalogue de substitution : le try-on n'a rien à quoi se raccrocher | `python scripts/import_garments.py <dossier>` puis `python scripts/check_garments.py`. Pour isoler la cause en un seul appel : `python scripts/probe_vto.py photo.jpg jacket_01` |
-| `"garments": "placeholder"` | idem, signalé par l'API elle-même | idem |
-| `error_editing_failed` avec `"garment_source": "uploaded"` | ce n'est plus le catalogue : la photo du vêtement ou la photo source est en cause | vêtement seul sur fond uni, et une photo de vous tête-aux-genoux, une seule personne, de face |
-| `VTO_FAILED` avec `provider_code` | la photo ne convient pas au try-on : pose illisible, plusieurs personnes, cadrage | le message affiché dit quoi refaire ; pour le VTO, une photo tête-aux-genoux, une seule personne, de face |
-| `502 ANALYSIS_FAILED` répété | auth rejetée, ou endpoints/actions Skin AI non activés | lire le log `skin_provider_failed` : il porte `error_code`, `reason` et la réponse du provider. En `APP_ENV=development`, la cause remonte aussi dans `details` |
-| `"youcam": "missing_credentials"` | `YOUCAM_API_KEY` absente | une seule variable suffit en v2 |
-| `401` côté provider | clé inactive, ou préfixe `Bearer` manquant | vérifier la clé dans la console |
-| `404` sur une tâche | chemin d'endpoint erroné | v2 : `/s2s/v2.0/task/cloth` — au **singulier** |
-| `"youcam": "missing_dependency"` | `cryptography` non installé | `cd apps/api && pip install -r requirements.txt` puis redémarrer |
-| « We can't reach Mirror Ops » | API arrêtée, ou origine absente de `CORS_ORIGINS` | démarrer l'API, ajouter `http://localhost:3000` |
-| « We need your photo again » | onglet rechargé avant l'analyse | reprendre la photo : elle n'est jamais persistée côté navigateur |
-| l'écran d'analyse ne progresse plus | ancienne version du fichier, ou cache Next | `rm -rf apps/web/.next && npm run dev` ; le filet de sécurité reprend sinon la main en 8 s |
-| l'interface appelle la mauvaise API | `NEXT_PUBLIC_API_BASE_URL` est figée au build | corriger `apps/web/.env.local` puis relancer `npm run dev` |
+| `409 INVALID_STATE` | step skipped | follow `moment → analyze → one-change → vto` |
+| `422 INVALID_IMAGE` | unreadable photo, or under 320 px | retake the photo |
+| `INVALID_REQUEST` on `/one-change/evaluate` | no piece declared | tick what you're wearing on *Your look* — the photo is not at fault. In `APP_ENV=development`, `details` carries the exact numbers |
+| `409 VTO_NOT_APPLICABLE` | the decision is `NO_CHANGE` | normal: nothing to preview |
+| `410 MEDIA_LINK_EXPIRED` | signed URL expired | re-read the session via `GET /sessions/{id}` |
+| `"youcam": "mock_mode"` | live not enabled | set `YOUCAM_MODE=live` in `apps/api/.env`, restart |
+| `"youcam": "missing_credentials"` | `YOUCAM_API_KEY` absent | one variable is enough on v2 |
+| `"youcam": "missing_dependency"` | `cryptography` not installed | `cd apps/api && pip install -r requirements.txt`, restart |
+| `unable to open database file` | `var/` missing (git-ignored) | nothing to do: the API recreates it at startup |
+| `column X does not exist` | database predating a new field | nothing to do: the API adds missing columns at startup. To apply it separately: `python scripts/sync_schema.py` |
+| `error_editing_failed` with `"garment_source": "catalog"` | placeholder catalogue: the try-on has nothing to work from | `python scripts/import_garments.py <folder>`, then `python scripts/check_garments.py` |
+| `"garments": "placeholder"` | same, reported by the API itself | same |
+| `error_editing_failed` with `"garment_source": "uploaded"` | not the catalogue any more: the garment photo or the source photo is at fault | garment alone on a plain background, and a head-to-knee photo, one person, facing the camera |
+| `VTO_FAILED` with a `provider_code` | the photo doesn't suit the try-on: unreadable pose, several people, framing | the displayed message says what to redo |
+| repeated `502 ANALYSIS_FAILED` | auth rejected, or Skin AI endpoints/actions not enabled | read the `skin_provider_failed` log: it carries `error_code`, `reason` and the provider response |
+| `404` on a task | wrong endpoint path | v2: `/s2s/v2.0/task/cloth` — **singular** |
+| "We can't reach Mirror Ops" | API down, or origin missing from `CORS_ORIGINS` | start the API, add `http://localhost:3000` |
+| "We need your photo again" | tab reloaded before the analysis | retake it: photos are never persisted client-side |
+| the interface calls the wrong API | `NEXT_PUBLIC_API_BASE_URL` is baked in at build time | fix `apps/web/.env.local`, then restart `npm run dev` |
+| "Take photo" missing | `getUserMedia` needs a secure context | serve over HTTPS, or use localhost |
 
 ---
 
-## 11. L'interface
+## 11. The interface
 
-Mobile-first (390 × 844), sept écrans, une seule action principale par écran.
+Mobile-first (390 × 844), seven screens, one primary action each.
 
 ```
-/            Home         la thèse et un seul bouton
-/moment      Moment       occasion + objectif + temps
-/look        Your look    caméra ou import, ce que vous portez, à quel point c'est habillé
-/analyzing   Analyzing    analyse puis décision, orchestrées côté backend
-/one-change  ONE CHANGE   l'écran signature
-/compare     Before/After la preuve visuelle · « Keep it / Try another »
-/ready       Ready        la sortie
+/            Home         the thesis and a single button
+/moment      Moment       occasion + goal + time
+/look        Your look    camera or upload, what you're wearing, how dressed up
+/analyzing   Analyzing    analysis then decision, orchestrated server-side
+/one-change  ONE CHANGE   the fit verdict, then the change
+/compare     Before/After the visual proof · "Keep it / Try another"
+/ready       Ready        the way out
 ```
 
-L'interface ne décide de rien : elle affiche ce que le moteur a choisi. Seul
-l'identifiant de session vit dans le navigateur — chaque écran relit
-`GET /sessions/{id}`, si bien qu'un rafraîchissement retrouve exactement la même
-décision. La photo, elle, ne persiste nulle part côté client : rechargée avant
-l'analyse, elle est redemandée plutôt que remplacée.
+The interface decides nothing: it displays what the engine chose. Only the
+session id lives in the browser — every screen re-reads `GET /sessions/{id}`, so
+a refresh recovers exactly the same decision. The photo persists nowhere on the
+client: reloaded before the analysis, it is asked for again rather than
+silently replaced.
 
-L'élément signature est l'**aiguille d'impact** : un axe, un trait fin pour
-l'état actuel, un trait plein pour l'état projeté. Le déplacement *est*
-l'information. En dessous, le registre liste ce qui change (une ligne, en
-magenta) et tout ce qui reste (en mercure, marqué « Keep ») — la hiérarchie
-visuelle porte elle-même la thèse du produit.
+The signature element is the **impact needle**: one axis, a thin tick for the
+current state, a solid one for the projected state. The movement *is* the
+information. Below it, the ledger lists what changes (one line, in the signal
+colour) and everything that stays (in mercury, marked "Keep") — the visual
+hierarchy carries the product thesis itself.
 
-Détail : [`apps/web/README.md`](apps/web/README.md).
+Detail: [`apps/web/README.md`](apps/web/README.md).
 
 ---
 
 ## Licence
 
-MIT — voir [`LICENSE`](LICENSE). Ressources tierces, visuels du catalogue et
-polices : [`NOTICE.md`](NOTICE.md).
+MIT — see [`LICENSE`](LICENSE). Third-party resources, catalogue visuals and
+fonts: [`NOTICE.md`](NOTICE.md).
 
 ---
 

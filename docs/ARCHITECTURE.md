@@ -1,78 +1,96 @@
-# Architecture backend
+# Backend architecture
 
-## Principe
+## Principle
 
 > Build the smallest architecture that can make the product look inevitable.
 
-Un produit. Un dépôt. Un déployable. Pas de microservices, pas de Kubernetes,
-pas de bus d'événements, pas de pipeline ML, pas de base vectorielle.
+One product. One repository. One deployable. No microservices, no Kubernetes,
+no event bus, no ML pipeline, no vector database.
 
-## Couches
+## Layers
 
 ```
-app/api/v1/routes      transport HTTP, validation d'entrée, codes de statut
-app/services           orchestration, transactions, machine à états, idempotence
-app/engines            décision (ONE CHANGE) et perception (estimateur d'apparence)
-app/integrations       adapters providers (YouCam), mocks locaux
-app/models · app/db    persistance
-app/core               config, erreurs, logging, sécurité, rate limit
+app/api/v1/routes      HTTP transport, input validation, status codes
+app/services           orchestration, transactions, state machine, idempotency
+app/engines            decision (ONE CHANGE) and perception (appearance estimator)
+app/integrations       provider adapters (YouCam), offline providers
+app/models · app/db    persistence
+app/core               config, errors, logging, security, rate limit
 ```
 
-Dépendances autorisées : `api → services → engines / integrations → infrastructure`.
-Jamais l'inverse. `engines/one_change` n'importe que `models/enums` (des énumérations pures).
+Allowed dependencies: `api → services → engines / integrations → infrastructure`.
+Never the reverse. `engines/one_change` imports only `models/enums` — pure
+enumerations.
 
-## Modèle de données
+## Data model
 
 ```
 sessions ─┬─ moments
-          ├─ image_assets          (métadonnées seulement : les octets sont dans le stockage objet)
+          ├─ image_assets          (metadata only: bytes live in object storage)
           ├─ appearance_analyses
           ├─ recommendations
           └─ vto_results
-idempotency_records                (protection des appels coûteux)
+idempotency_records                (protects the expensive calls)
 ```
 
-Clés primaires UUID, `created_at` / `updated_at`, `expires_at` sur tout ce qui est temporaire.
+UUID primary keys, `created_at` / `updated_at`, and `expires_at` on everything
+temporary.
 
-**Évolution du schéma.** Pas d'Alembic : `create_all` au démarrage suffit à créer
-les tables. Mais `create_all` n'ajoute jamais une colonne à une table existante —
-et comme SQLAlchemy sélectionne toutes les colonnes déclarées, un champ ajouté au
-modèle rend inutilisable toute base persistante, y compris pour les requêtes qui
-ne s'en servent pas. `db/schema_sync.py` comble exactement cet écart : il ajoute
-les colonnes manquantes, avec une valeur par défaut pour les lignes existantes.
+**Schema evolution.** No Alembic: `create_all` at startup is enough to create
+tables. But `create_all` never adds a column to an existing table — and since
+SQLAlchemy selects every declared column, a new field makes any persistent
+database unusable, including for queries that don't touch it.
+`db/schema_sync.py` closes exactly that gap: it adds missing columns, with a
+default value for existing rows.
 
-Volontairement **additif seulement**. Renommer, supprimer ou changer un type
-relève d'une vraie migration ; c'est rare, et ce n'est pas une raison pour
-laisser une démonstration tomber sur un `UndefinedColumnError`.
+Deliberately **additive only**. Renaming, dropping or retyping a column belongs
+to a real migration; those are rare, and that is no reason to let a demo fall
+over on an `UndefinedColumnError`.
 
-## Machine à états
+## State machine
 
 ```
 SESSION_CREATED → MOMENT_CREATED → ANALYSIS_COMPLETED → DECISION_COMPLETED
                 → VTO_PROCESSING → VTO_COMPLETED → SESSION_COMPLETED
 ```
 
-Monotone : l'état n'avance jamais en arrière. Toute transition impossible → `409 INVALID_STATE`.
+Monotonic: state never moves backwards. Any impossible transition →
+`409 INVALID_STATE`.
 
-## Asynchrone
+## Asynchrony
 
-Pas de Celery, pas de Redis, pas de queue. Si un endpoint YouCam est asynchrone, le
-polling reste dans le backend et le frontend ne voit que des états lisibles.
-*Do not introduce infrastructure before the API requires it.*
+No Celery, no Redis, no queue. When a YouCam endpoint is asynchronous, the
+polling stays inside the backend and the frontend only ever sees readable
+states. *Do not introduce infrastructure before the API requires it.*
 
-## Stockage
+## Storage
 
-Interface `ObjectStorage` (`put/get/exists/delete_prefix`) avec deux implémentations :
-disque local (défaut, suffisant pour le hackathon) et S3/R2/MinIO. Clés :
-`sessions/{session_id}/{input|vto}/{hash}.{ext}`. Accès uniquement par URL signée HMAC
-à durée de vie limitée.
+An `ObjectStorage` interface (`put/get/exists/delete_prefix`) with two
+implementations: local disk (the default, sufficient here) and S3/R2/MinIO.
+Keys: `sessions/{session_id}/{input|vto|garment}/{hash}.{ext}`. Access only
+through HMAC-signed, expiring URLs.
 
-## Observabilité
+User-imported garments live outside the source tree, under
+`apps/api/var/garments/`, resolved before the shipped visuals. A project update
+— including an archive extracted on top — can therefore never destroy them.
+**A deliverable must never write where the user writes.**
 
-Logs JSON assainis avec `request_id`, `session_id`, endpoint, latence, statut,
-provider, `simulated`, code d'erreur. Pas de plateforme d'observabilité pour le MVP.
+## Observability
 
-## Ce qui n'est volontairement pas construit
+Sanitised JSON logs carrying `request_id`, `session_id`, endpoint, latency,
+status, provider, `simulated` and error code. No observability platform for this
+scope.
 
-Microservices · Kubernetes · GraphQL · bus d'événements · entraînement ML · base vectorielle ·
-framework multi-agents · cluster Redis · apps natives · backend e-commerce complet.
+Events worth alerting on:
+
+| Message | Meaning |
+|---|---|
+| `skin_provider_degraded` | Skin AI unavailable; the journey continues without it |
+| `vto_provider_failed` | try-on impossible — read `garment_source` and `provider_code` |
+| `garment_catalog_is_placeholder` | catalogue not replaced at startup |
+| `youcam_live_without_credentials` | incomplete configuration |
+
+## What was deliberately not built
+
+Microservices · Kubernetes · GraphQL · event bus · ML training · vector database ·
+multi-agent framework · Redis cluster · native apps · a full e-commerce backend.

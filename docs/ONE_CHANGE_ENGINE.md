@@ -1,130 +1,145 @@
-# ONE CHANGE — spécification d'implémentation
+# ONE CHANGE — implementation specification
 
 > *ONE CHANGE must be opinionated.*
-> Le moteur ne dit jamais « vous pourriez changer la veste, les chaussures ou un accessoire ».
-> Il dit « changez la veste », puis explique pourquoi.
+> The engine never says "you could change the jacket, the shoes or an
+> accessory". It says "change the jacket", then explains why.
 
-Code : `apps/api/app/engines/one_change/` — **domaine pur**, aucune dépendance
-FastAPI / SQLAlchemy / HTTP / LLM.
+Code: `apps/api/app/engines/one_change/` — a **pure domain**, with no FastAPI,
+SQLAlchemy, HTTP or LLM dependency.
 
-## 0. Le verdict précède le changement
+## 0. The verdict precedes the change
 
 ```
 DecisionContext → assess_fit() → FIT | ALMOST_THERE | MISMATCH
 ```
 
-`fit.py` projette le look sur ce que l'occasion demande — pas sur une échelle de
-qualité absolue. Il nomme l'élément qui tire l'ensemble vers le bas **seulement**
-s'il se détache réellement du reste ; à égalité, il le dit sans désigner personne.
+`fit.py` projects the look onto what the occasion demands — not onto an absolute
+quality scale. It names the element dragging the whole down **only** if it
+genuinely stands apart; at parity, it says so without pointing at anyone.
 
-Un verdict `FIT` et une action autre que `NO_CHANGE` seraient contradictoires à
-l'écran ; un test parcourt les dix occasions et trois niveaux de qualité pour
-s'assurer que cela ne peut pas arriver.
+A `FIT` verdict alongside an action other than `NO_CHANGE` would contradict
+itself on screen, so the two are reconciled by construction. A test walks all
+ten occasions and four dressiness levels to make sure no screen ever promises
+readiness while demanding a change.
 
 ## 1. Pipeline
 
 ```
 DecisionContext
    │
-   ├─ validate            Data Quality Gate : trois motifs distincts (voir §1 bis)
-   ├─ generate_candidates espace fermé de 7 actions, filtrage contextuel
-   ├─ score               7 features pondérées → 0-100
-   ├─ tie_breaker         écart < 5 pts → moindre effort (NO_CHANGE exclu de ce départage)
-   ├─ thresholds          seuil minimal + marge obligatoire face à NO_CHANGE
-   ├─ confidence          qualité des données × séparation × complétude du contexte
-   └─ explanation         templates déterministes, dérivés des facteurs réellement dominants
+   ├─ validate            data quality gate: two refusals, each with a remedy
+   ├─ assess_fit          does this look work HERE?
+   ├─ generate_candidates closed space of 8 actions, contextual filtering
+   ├─ score               7 weighted features → 0-100
+   ├─ tie_breaker         gap < 5 pts → least effort (NO_CHANGE excluded)
+   ├─ thresholds          minimum score, and a mandatory margin over NO_CHANGE
+   ├─ confidence          data quality × candidate separation × context completeness
+   └─ explanation         deterministic templates, from the factors that dominated
         ↓
-   DecisionOutcome  (1 action, 1 score, 1 raison, la liste "keep", l'impact projeté)
+   DecisionOutcome  (1 action, 1 score, 1 reason, the "keep" list, projected impact)
 ```
 
-## 1 bis. Le portail de qualité nomme ce qui manque
+## 1 bis. The quality gate names what is missing
 
-| Motif | Cause réelle | Ce qu'on demande |
+| Reason | Real cause | What we ask for |
 |---|---|---|
-| `no_outfit_declared` | aucune pièce déclarée | dire ce qu'on porte |
-| `image_unusable` | qualité d'image sous 0,35 | reprendre la photo |
-| `insufficient_data` | plancher absolu (0,20) | l'un ou l'autre |
+| `no_outfit_declared` | no piece declared | say what you're wearing |
+| `image_unusable` | image quality below 0.35 | retake the photo |
 
-Ne pas connaître les **attributs** d'une tenue n'est plus un motif de refus :
-cela abaisse la confiance de décision, ce que le produit annonce déjà. Refuser
-en plus serait plus sévère que nécessaire — et surtout, envoyer quelqu'un
-reprendre une photo parfaite parce que sa *tenue* n'est pas décrite est une
-impasse : rien de ce qu'il fera devant l'objectif n'y changera quoi que ce soit.
+Not knowing an outfit's **attributes** is no longer grounds for refusal: it
+lowers decision confidence, which the product already reports. Refusing on top
+of that would be harsher than necessary — and above all, sending someone to
+retake a perfectly good photo because their *outfit* is undescribed is a dead
+end: nothing they do in front of the lens will change it.
 
-## 2. Espace de décision
+Every refusal must open onto a specific gesture. A third gate based on overall
+confidence pointed at neither the photo nor the outfit, so it was removed.
+
+## 2. Decision space
 
 `CHANGE_JACKET · CHANGE_TOP · CHANGE_BOTTOM · CHANGE_SHOES · CHANGE_ACCESSORY ·
 CHANGE_COLOR · REMOVE_ACCESSORY · NO_CHANGE`
 
-Trois gestes, pas un seul : **changer**, **ajouter** (quand la pièce manque) et
-**retirer** (quand il y en a une de trop). Le libellé suit la réalité — « Add a
-jacket », « Remove the accessory » — et un retrait ne demande aucun essayage.
+Three gestures, not one: **change**, **add** (when the piece is missing) and
+**remove** (when there is one too many). Labels follow reality — "Add a jacket",
+"Remove the accessory" — and a removal asks for no try-on.
 
-Fermé volontairement : plus fiable, plus testable, plus démontrable.
-Un candidat est écarté si la pièce est absente, si le changement est irréaliste dans le
-temps disponible (`<5 min` exclut le bas), ou s'il n'y a pas assez d'éléments pour un
-travail de couleur.
+The space is deliberately closed: more reliable, more testable, more
+demonstrable. A candidate is dropped when the piece is absent and cannot
+sensibly be added, when the change is unrealistic in the time available (`<5 min`
+rules out the bottom), or when there aren't enough elements for colour work.
 
-## 3. Features (toutes normalisées 0..1)
+An intention is distinguished from the element it actually touches.
+"Change the top for a better colour" materialises on the top, so the top must
+not appear in the `keep` list — otherwise the screen contradicts the preview.
 
-| Feature | Poids | Source |
+## 3. Features (all normalised 0..1)
+
+| Feature | Weight | Source |
 |---|---|---|
-| `goal_alignment` | 0.25 | vecteur d'objectif × capacité du levier (`GOAL_VECTORS` × `CAPABILITY`) |
+| `goal_alignment` | 0.25 | goal vector × lever capability (`GOAL_VECTORS` × `CAPABILITY`) |
 | `context_fit` | 0.20 | `CONTEXT_FIT[occasion][action]` |
 | `visual_impact` | 0.20 | `VISIBILITY[action] × (0.5 + 0.5 × gap)` |
-| `current_gap` | 0.10 | `POTENTIAL_CEILING[élément] − suitability actuelle` |
-| `time_fit` | 0.10 | `TIME_FIT[temps][action]` |
-| `data_confidence` | 0.10 | qualité image × complétude des indices |
+| `current_gap` | 0.10 | `POTENTIAL_CEILING[element] − current suitability` |
+| `time_fit` | 0.10 | `TIME_FIT[time][action]` |
+| `data_confidence` | 0.10 | image quality × completeness of the declared outfit |
 | `vto_feasibility` | 0.05 | `VTO_FEASIBILITY[action]` |
 
-`final_score = round(Σ poids × feature × 100)`
+`final_score = round(Σ weight × feature × 100)`
 
-Toutes les tables sont dans `tables.py` et sont **configurables** : elles encodent des
-heuristiques produit destinées à la calibration, pas des vérités scientifiques.
+Every table lives in `tables.py` and is **configurable**: they encode product
+heuristics meant to be calibrated, not scientific truths.
 
-## 4. NO_CHANGE est un vrai candidat
+## 4. NO_CHANGE is a real candidate
 
-`NO_CHANGE` est évalué avec les mêmes features, mais mesuré sur l'état **actuel** :
-adéquation courante à l'objectif et à l'occasion, marge restante, etc. Ses features
-d'adéquation passent par une fonction convexe (`NO_CHANGE_SHARPNESS = 2.0`) :
-« ne rien changer » doit se mériter — un look moyen ne suffit pas.
+`NO_CHANGE` is scored with the same features, but measured on the **current**
+state. Its fitness features pass through a convex function
+(`NO_CHANGE_SHARPNESS = 2.0`): doing nothing has to be earned — an average look
+is not enough.
 
-Deux garde-fous supplémentaires :
+Two further guards:
 
-- si le meilleur changement est sous `ONE_CHANGE_THRESHOLD` (60) → `NO_CHANGE` ;
-- si le meilleur changement ne bat pas `NO_CHANGE` d'au moins `ONE_CHANGE_NO_CHANGE_MARGIN`
-  (2 pts) → `NO_CHANGE`.
+- if the best change is below `ONE_CHANGE_THRESHOLD` (60) → `NO_CHANGE`;
+- if the best change fails to beat `NO_CHANGE` by at least
+  `ONE_CHANGE_NO_CHANGE_MARGIN` (2 pts) → `NO_CHANGE`.
 
-C'est ce qui empêche le produit d'inventer une modification juste pour utiliser le VTO.
+This is what stops the product inventing a change just to use the try-on.
 
-## 5. Départage déterministe
+## 5. Deterministic tie-breaking
 
-Écart < `ONE_CHANGE_TIE_DELTA` (5 pts) → priorité, dans l'ordre : moindre effort,
-meilleur context fit, VTO plus simple, ordre produit figé. `NO_CHANGE` n'entre jamais dans
-ce départage (sinon « ne rien faire » gagnerait tous les quasi ex æquo) : il est arbitré
-par la politique de seuils. À contexte identique, le moteur rend toujours la même décision.
+Gap below `ONE_CHANGE_TIE_DELTA` (5 pts) → priority, in order: least effort,
+better context fit, simpler try-on, fixed product order. `NO_CHANGE` never
+enters this tie-break — otherwise "do nothing" would win every near-tie — and is
+arbitrated by the threshold policy instead. Given identical context, the engine
+always returns the same decision.
 
-## 6. Confiance de décision ≠ score d'impact
+## 6. Decision confidence ≠ impact score
 
-- **Score d'impact** : qualité relative de l'intervention.
-- **Decision confidence** : `qualité des données × séparation des candidats × complétude du contexte`,
-  exposée en `low / medium / high` — jamais en pourcentage faussement précis.
+- **Impact score**: relative quality of the intervention.
+- **Decision confidence**: `data quality × candidate separation × context
+  completeness`, exposed as `low / medium / high` — never as a falsely precise
+  percentage.
 
-Une décision prise sur un quasi ex æquo, ou sans indices sur la tenue, ressort logiquement
-en confiance basse.
+A decision made on a near-tie, or without any information about the outfit,
+comes out as low confidence. That is honest, and it is stated rather than hidden.
 
-## 7. Le signal peau n'accapare jamais la décision
+## 7. The skin signal never hijacks the decision
 
-Skin AI enrichit le contexte d'apparence. Il n'agit que s'il est **matériel** (au-delà de
-seuils explicites) et son influence est bornée (`SKIN_MAX_INFLUENCE = 0.08`). Un test
-vérifie qu'une peau très marquée ne modifie pas l'action choisie : MIRROR OPS reste un
-agent de décision d'apparence, pas un coach skincare.
+Skin AI enriches the appearance context. It acts only when **material** (past
+explicit thresholds) and its influence is capped (`SKIN_MAX_INFLUENCE = 0.08`).
+A test verifies that heavily marked skin does not change the chosen action:
+MIRROR OPS remains an appearance decision agent, not a skincare coach.
 
-## 8. Explication vraie
+YouCam returns **health** scores (higher = healthier). The engine reasons in
+**severity**, so `redness`, `oiliness` and `texture` are inverted on the way in;
+`radiance` is already a quality and stays as is. Without that inversion, flawless
+skin would read as heavily marked.
 
-`explanation.py` classe les contributions **pondérées réelles** du gagnant et construit
-la phrase à partir des deux facteurs dominants. Une justification générique, indépendante
-du calcul, est impossible par construction.
+## 8. True explanations
+
+`explanation.py` ranks the winner's **actual weighted contributions** and builds
+the sentence from the two dominant factors. A generic justification, disconnected
+from the computation, is impossible by construction.
 
 ## 9. Calibration
 
@@ -132,5 +147,6 @@ du calcul, est impossible par construction.
 python scripts/calibrate_engine.py
 ```
 
-Affiche le classement complet des candidats sur sept scénarios. Pour ajuster : modifier
-`tables.py` ou les variables `ONE_CHANGE_*`, puis relancer `pytest tests/test_engine_scenarios.py`.
+Prints the full candidate ranking across eleven scenarios, with the fit verdict.
+To adjust: edit `tables.py` or the `ONE_CHANGE_*` variables, then re-run
+`pytest tests/test_engine_scenarios.py tests/test_contextual_fit.py`.

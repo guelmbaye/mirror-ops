@@ -1,180 +1,178 @@
 # MIRROR OPS — interface
 
-Next.js 14 (App Router), TypeScript strict, mobile-first (390 × 844).
-L'interface ne contient **aucune logique de décision** : elle affiche ce que le
-moteur a choisi, et ne parle jamais à YouCam directement.
+Next.js 14 (App Router), strict TypeScript, mobile-first (390 × 844).
+The interface holds **no decision logic**: it displays what the engine chose, and
+never talks to YouCam directly.
 
-## Lancer
+## Running it
 
 ```bash
-npm install                     # depuis la racine du dépôt
-cp apps/web/.env.local.example apps/web/.env.local
+npm install                     # from the repository root
 npm run dev                     # http://localhost:3000
 ```
 
-L'API doit tourner en parallèle (`make dev-api`) et autoriser `http://localhost:3000`
-dans `CORS_ORIGINS`.
+The API must be running alongside (`make dev-api`) and must allow
+`http://localhost:3000` in `CORS_ORIGINS`.
 
-| Variable | Rôle |
+| Variable | Role |
 |---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | racine de l'API MIRROR OPS (défaut `http://localhost:8000`) |
+| `NEXT_PUBLIC_API_BASE_URL` | MIRROR OPS API root (default `http://localhost:8000`) |
+| `NEXT_PUBLIC_SITE_URL` | public site origin, for social images |
 
-Cette variable est **compilée dans le bundle client** : la changer impose un rebuild.
-Aucune clé YouCam n'apparaît ici, ni ne doit y apparaître.
+Both are **compiled into the client bundle**: changing them requires a rebuild.
+No YouCam key appears here, and none ever should.
 
-## Écrans
+## Screens
 
 ```
-/            Home        la thèse et un seul bouton
-/moment      Moment      occasion + objectif + temps
-/look        Your look   caméra ou import, preview, reprise
-/analyzing   Analyzing   analyse puis décision, orchestrées côté backend
-/one-change  ONE CHANGE  l'écran signature
-/compare     Before/After la preuve visuelle
-/ready       Ready       la sortie
+/            Home         the thesis and a single button
+/moment      Moment       occasion + goal + time
+/look        Your look    camera or upload, what you're wearing, how dressed up
+/analyzing   Analyzing    analysis then decision, orchestrated server-side
+/one-change  ONE CHANGE   the fit verdict, then the change
+/compare     Before/After the visual proof · "Keep it / Try another"
+/ready       Ready        the way out
 ```
 
-Un seul appel API porte chaque transition, dans l'ordre imposé par la machine à
-états du backend. Sauter une étape renvoie `409` : l'interface renvoie alors
-l'utilisateur à l'écran manquant plutôt que d'afficher une erreur technique.
+One API call carries each transition, in the order enforced by the backend state
+machine. Skipping a step returns `409`: the interface then sends the user back to
+the missing screen rather than showing a technical error.
 
 ## Structure
 
 ```
 src/
-├── app/                 un dossier par écran + layout, error, not-found
+├── app/                   one folder per screen + layout, error, not-found
 ├── components/
-│   ├── Stage.tsx        plateau commun : en-tête, fil d'étapes
-│   ├── Action.tsx       boutons (primaire / fantôme / discret)
-│   ├── ChoiceGroup.tsx  groupes de choix à sélection unique
-│   ├── Verdict.tsx      ★ plaque de verdict, aiguille d'impact, registre
-│   ├── CameraCapture.tsx prise de photo réelle, avec repli honnête
-│   ├── BeforeAfter.tsx  comparateur (souris, tactile, clavier)
-│   └── Notice.tsx       états d'échec et tampon « simulated »
+│   ├── Stage.tsx          shared frame: header, step rail, back link
+│   ├── Action.tsx         buttons (primary / ghost / quiet)
+│   ├── ChoiceGroup.tsx    single-select choice groups
+│   ├── CameraCapture.tsx  real photo capture, with an honest fallback
+│   ├── Verdict.tsx        ★ verdict plate, impact needle, ledger
+│   ├── BeforeAfter.tsx    comparator (mouse, touch, keyboard)
+│   └── Notice.tsx         failure states and the "simulated" stamp
 └── lib/
-    ├── api.ts           client typé, erreurs normalisées
-    ├── session.ts       identifiant de session + clés d'idempotence
-    ├── photo.ts         la photo vit en mémoire, le temps d'un parcours
-    └── format.ts        conversions d'affichage
+    ├── api.ts             typed client, normalised errors
+    ├── session.ts         session id + input-aware idempotency keys
+    ├── photo.ts           the photo lives in memory, for one journey
+    └── format.ts          display conversions
 ```
 
-Les types viennent de `@mirror-ops/types` (miroir des schémas Pydantic) et les
-libellés de `@mirror-ops/config`. Le backend renvoie des identifiants stables ;
-la façon de les nommer à l'utilisateur appartient à l'interface.
+Types come from `@mirror-ops/types` (a mirror of the Pydantic schemas) and copy
+from `@mirror-ops/config`. The backend returns stable identifiers; how to name
+them to the user belongs to the interface.
 
-## Essayer sa propre pièce
+## Implementation choices
 
-Le bouton **« Try a piece of your own »** est présent sur **deux** écrans, et
-c'est délibéré. Il n'existait d'abord que sur Before/After — donc derrière un
-essayage réussi. Or c'est exactement quand le catalogue échoue que la personne
-en a besoin, et elle se trouve alors sur l'écran de décision. Une échappatoire
-placée derrière la porte bloquée n'en est pas une.
+**The authoritative state lives server-side.** Only the session id is kept in the
+browser (`sessionStorage`). Every screen re-reads `GET /sessions/{id}`: a refresh
+recovers exactly the same decision — which matters as much for a demo as for
+trust.
 
-## « Try another » sans trahir ONE CHANGE
+**The photo does not persist.** It lives in an in-memory module for the length of
+one journey. Tab reloaded before the analysis → the screen says so and asks
+again, rather than analysing something else.
 
-Le positionnement prévoit un écran « Keep it / Try another ». La règle 3 interdit
-pourtant de transformer ONE CHANGE en liste de recommandations. Les deux tiennent
-ensemble à une condition : **« Try another » échange la pièce, jamais la décision.**
+**The analysing screen cannot stall.** It is the only screen that chains two
+asynchronous calls before navigating, so the only one that can freeze if a
+promise never returns. A watchdog re-reads the session state every 8 seconds and
+resumes wherever the server actually is: decision already made → go; analysis
+done but decision missing → request it; nothing after four attempts → an explicit
+message rather than a spinner. It is a plain `GET`: no API credit consumed.
 
-Le bouton n'interroge le catalogue que dans la catégorie décidée par le moteur, il
-disparaît s'il n'existe aucune alternative, et la clé d'idempotence inclut le
-vêtement — réessayer la même pièce ne coûte rien, en changer coûte un aperçu, à la
-demande explicite de l'utilisateur et jamais automatiquement.
+**A double-click doesn't cost two credits.** The expensive calls (analysis,
+try-on) carry an `Idempotency-Key` derived from the session **and the inputs**.
+Identical inputs keep the same key; a corrected outfit produces a new one, so the
+correction is genuinely applied.
 
-## Choix d'implémentation
+**The fallback is visible.** When a preview comes from local composition
+(`simulated: true`), the Before/After screen says so. A result that didn't come
+from YouCam never pretends it did.
 
-**L'état officiel est côté serveur.** Seul l'identifiant de session est conservé
-dans le navigateur (`sessionStorage`). Chaque écran relit `GET /sessions/{id}` :
-un rafraîchissement retrouve exactement la même décision — ce qui compte autant
-pour une démonstration que pour la confiance.
+## Trying your own piece
 
-**L'écran d'analyse ne peut pas rester bloqué.** C'est le seul qui enchaîne deux
-appels asynchrones avant de naviguer, donc le seul qui puisse se figer si une
-promesse ne revient jamais. Un filet de sécurité relit l'état de la session
-toutes les 8 secondes et reprend le parcours là où le serveur en est : décision
-déjà prise → on y va ; analyse faite mais décision manquante → on la demande ;
-rien après quatre tentatives → un message explicite plutôt qu'une animation qui
-tourne. C'est un simple `GET` : aucune unité API n'est consommée.
+The **"Try a piece of your own"** button appears on **two** screens, deliberately.
+It first existed only on Before/After — that is, behind a successful try-on. But
+that is exactly when the catalogue fails that someone needs it, and they are then
+on the decision screen. An escape hatch placed behind the stuck door is not one.
 
-**La photo ne persiste pas.** Elle vit dans un module en mémoire, le temps d'un
-parcours. Onglet rechargé avant l'analyse → l'écran le dit et la redemande,
-plutôt que d'analyser autre chose.
+## "Try another" without betraying ONE CHANGE
 
-**Un double-clic ne coûte pas deux unités.** Les appels coûteux (analyse, VTO)
-portent un en-tête `Idempotency-Key` dérivé de la session et de l'étape.
+The positioning calls for a "Keep it / Try another" screen. Rule 3 nonetheless
+forbids turning ONE CHANGE into a list of recommendations. The two hold together
+on one condition: **"Try another" swaps the piece, never the decision.**
 
-**Le repli est visible.** Quand l'aperçu vient d'une composition locale
-(`simulated: true`), l'écran Before/After l'affiche. Un résultat qui ne vient pas
-de YouCam ne prétend jamais en venir.
+The button only queries the catalogue within the category the engine chose, it
+disappears when no alternative exists, and the idempotency key includes the
+garment — retrying the same piece costs nothing, switching costs one preview, at
+the user's explicit request and never automatically.
 
 ## Design
 
-La palette est dérivée du logo. La règle, elle, est antérieure et ne bouge pas :
-**une seule couleur signal, réservée à ce qui change.**
+The palette derives from the logo. The rule predates it and does not move: **one
+signal colour, reserved for what changes.**
 
-| Jeton | Valeur | Emploi |
+| Token | Value | Use |
 |---|---|---|
-| `--porcelain` | `#F0F1F3` | fond |
-| `--ink` | `#0B1A2E` | texte principal (bleu marine poussé en valeur de texte) |
-| `--navy` | `#0A326E` | bleu du logo · étiquette « Before » |
-| `--graphite` | `#5C6675` | texte secondaire |
-| `--mercury` | `#D3D6DC` | filets, rails, état « gardé » |
-| `--signal` | `#C1005C` | **le changement**, en typographie |
-| `--signal-bright` | `#E6006E` | **le changement**, en tracé (aiguille, filets) |
-| `--sky` | `#46AAE6` | l'état **avant**, et rien d'autre |
+| `--porcelain` | `#F0F1F3` | background |
+| `--ink` | `#0B1A2E` | primary text (the logo navy pushed to a text value) |
+| `--navy` | `#0A326E` | logo blue · "Before" tag |
+| `--graphite` | `#5C6675` | secondary text |
+| `--mercury` | `#D3D6DC` | rules, tracks, the "kept" state |
+| `--signal` | `#C1005C` | **the change**, in type |
+| `--signal-bright` | `#E6006E` | **the change**, in strokes (needle, rules) |
+| `--sky` | `#46AAE6` | the **before** state, and nothing else |
 
-Deux valeurs de magenta parce que le magenta de marque donne 4.05:1 sur
-porcelaine — sous le seuil AA. Les capitales de 10 à 12 px utilisent donc la
-version assombrie (5.4:1) ; le magenta de marque reste sur les tracés, où le
-contraste de texte ne s'applique pas.
+Two magenta values because the brand magenta yields 4.05:1 on porcelain — below
+the AA threshold. Small caps of 10 to 12 px therefore use the darkened version
+(5.4:1); the brand magenta stays on strokes, where text contrast does not apply.
 
-Le bleu clair du logo n'a qu'un seul emploi : marquer l'état **avant** sur
-l'aiguille d'impact. C'est le contrepoint du signal, pas une décoration — il
-donne au troisième ton de la marque un travail réel plutôt qu'un rôle ornemental.
+The logo's light blue has exactly one job: marking the **before** state on the
+impact needle. It is the counterpoint to the signal, not decoration — which gives
+the brand's third tone real work rather than an ornamental role.
 
-Fraunces pour le verdict, Archivo pour l'interface, JetBrains Mono pour les
-données. Les familles sont chargées à distance, avec une pile de repli explicite :
-hors ligne, la mise en page tient.
+Fraunces for the verdict, Archivo for the interface, JetBrains Mono for data. The
+families load remotely, with an explicit fallback stack: offline, the layout
+holds.
 
-### Ressources de marque
+The signature element is the **impact needle**: one axis, a thin tick for the
+current state, a solid one for the projected state. The movement *is* the
+information — neither a radial gauge, nor a radar, nor a dashboard. Below it, the
+**ledger**: one offset line in magenta for the piece that changes, all the others
+in mercury marked "Keep". The visual hierarchy carries the product thesis.
 
-| Fichier | Emploi |
+Quality floor: responsive down to 320 px, visible keyboard focus,
+`prefers-reduced-motion` honoured, comparator drivable with arrow keys.
+
+### Brand assets
+
+| File | Use |
 |---|---|
-| `public/logo-mirror-ops.png` · `@2x` | en-tête (26 px) et accueil (44–54 px) |
-| `public/mark-mirror-ops.png` | le symbole seul, pour les supports hors application |
-| `src/app/icon.png` · `favicon.ico` · `apple-icon.png` | icônes, détectées automatiquement par Next |
-| `src/app/opengraph-image.png` · `twitter-image.png` | aperçu de partage (1200 × 630) |
-| `src/app/manifest.ts` | manifeste d'application (épinglage écran d'accueil) |
+| `public/logo-mirror-ops.png` · `@2x` | header (26 px) and home (44–54 px) |
+| `public/mark-mirror-ops.png` | the symbol alone, for material outside the app |
+| `src/app/icon.png` · `favicon.ico` · `apple-icon.png` | icons, auto-detected by Next |
+| `src/app/opengraph-image.png` · `twitter-image.png` | share preview (1200 × 630) |
+| `src/app/manifest.ts` | web app manifest (home-screen install) |
 
-Les icônes sont posées sur un fond porcelaine plutôt que transparent : le bleu
-marine du symbole disparaîtrait sur un chrome de navigateur sombre.
+Icons sit on a porcelain background rather than transparency: the symbol's navy
+would vanish against dark browser chrome.
 
-L'élément signature est **l'aiguille d'impact** : un axe, un trait fin pour l'état
-actuel, un trait plein pour l'état projeté. Le déplacement *est* l'information —
-ni jauge circulaire, ni radar, ni tableau de bord (Doc 03 §14). En dessous, le
-**registre** : une ligne décalée en magenta pour la pièce qui change, toutes les
-autres en mercure marquées « Keep ». La hiérarchie visuelle porte la thèse du
-produit.
-
-Plancher de qualité : responsive jusqu'à 320 px, focus clavier visible,
-`prefers-reduced-motion` respecté, comparateur pilotable aux flèches.
-
-## Vérifier
+## Verifying
 
 ```bash
 npm run test          # vitest + jsdom
-npm run typecheck     # application ET tests, deux passes
-npm run build         # build de production
+npm run typecheck     # application AND tests, two passes
+npm run build         # production build
 ```
 
-`next build` type-vérifie tout ce que `tsconfig.json` inclut. Les tests et leur
-configuration en sont donc **exclus** : sans cela, compiler la production
-échouerait dès qu'une dépendance de développement manque — ce qui est le cas
-normal sur un serveur de build. Ils restent vérifiés à part, avec la même
-rigueur, via `tsconfig.test.json`.
+`next build` type-checks everything `tsconfig.json` includes. Tests and their
+configuration are therefore **excluded**: without that, compiling for production
+would fail as soon as a development dependency is missing — the normal case on a
+build server. They stay verified separately, with the same rigour, through
+`tsconfig.test.json`.
 
-`tests/analyzing.test.tsx` couvre le point le plus fragile du parcours : l'écran
-d'analyse enchaîne deux appels asynchrones puis navigue. Il est monté **sous
-StrictMode**, donc dans les conditions du mode développement où React monte,
-démonte puis remonte chaque composant — un enchaînement qui a déjà fait
-échouer silencieusement l'orchestration une fois.
+`tests/analyzing.test.tsx` mounts the analysing screen **under StrictMode** —
+the development conditions where React mounts, unmounts and remounts every
+component. That sequence once silently killed the orchestration. A fourth test
+deliberately blocks the analysis promise and checks that the watchdog recovers
+the journey from server state.
