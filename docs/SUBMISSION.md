@@ -1,0 +1,276 @@
+# Dossier de soumission — YouCam API Hackathon
+
+Tout ce que demande le règlement, prêt à copier. Les blocs en anglais sont le
+texte à coller tel quel sur Devpost ; le reste est de la consigne.
+
+Références : <https://youcam-api.devpost.com/> · <https://youcam-api.devpost.com/rules>
+
+---
+
+## 1. Ce que le règlement exige, et où c'est
+
+| Exigence | État | Où |
+|---|---|---|
+| URL du dépôt, public **avec licence** | ✅ | `LICENSE` (MIT) + `NOTICE.md` |
+| Code source, assets et instructions complets | ✅ | `README.md` §3 — deux commandes |
+| Description texte : fonctionnalités, valeur consommateur/retail | ✅ | §2 ci-dessous |
+| Captures d'écran | ⬜ à produire | §4 — les six à prendre |
+| Vidéo 1–3 min, bout en bout, sur l'appareil visé | ⬜ à produire | §3 — script minuté |
+| La vidéo explique les API YouCam utilisées | ✅ dans le script | §3, 0:55 et 1:50 |
+| Vidéo publique sur YouTube | ⬜ | — |
+| Aucune marque tierce ni musique protégée | ⚠️ **à vérifier au montage** | §3, note finale |
+| Entretien de sortie si lauréat | — | — |
+
+> Si le dépôt reste privé, le partager avec `contact_event@PerfectCorp.com`.
+
+---
+
+## 2. Description Devpost
+
+### 2.1 — Titre et accroche
+
+```
+MIRROR OPS — Fit the moment. One change.
+```
+
+```
+A contextual appearance decision engine. It tells you whether your look fits
+the moment you're about to enter and, when it doesn't, finds the ONE change
+worth making — then uses YouCam to prove it before you act.
+```
+
+### 2.2 — Description longue (à coller dans « About the project »)
+
+```
+## The problem isn't choice. It's certainty.
+
+You have ten minutes before an interview. You don't need twenty outfit ideas —
+you need to know whether what you're wearing works, and if not, what single
+thing to change.
+
+Every appearance tool answers "what should I wear?" MIRROR OPS answers a
+different question:
+
+    Will this look work HERE?
+
+## How it works
+
+1. THE MOMENT — occasion, goal, time available. Three taps.
+2. YOUR LOOK — one photo, and which pieces you're wearing.
+3. CONTEXTUAL FIT — the engine judges your look against THAT occasion, not
+   against an abstract standard. Three verdicts:
+       FIT           You're good to go.
+       ALMOST THERE  Your outfit fits, but the shoes reduce the formality.
+       MISMATCH      This doesn't fit the moment.
+4. ONE CHANGE — the single highest-value intervention. Change a piece, add one
+   that's missing, or remove one too many. Never a list.
+5. THE PROOF — YouCam Apparel VTO shows the change on you, before you make it.
+6. ACT — everything else stays exactly as it was.
+
+The same outfit is judged differently by the moment. A casual look scores 73
+for travel and 51 for a wedding. That difference IS the product.
+
+## The constraint is the product
+
+MIRROR OPS can also decide that nothing is worth changing. NO CHANGE is a real
+outcome, and it consumes no VTO credit. A decision engine that cannot decide to
+do nothing isn't a decision engine — it's a recommendation generator.
+
+It is not an AI stylist, a shopping assistant, a wardrobe manager, a generic
+try-on app, or a skin diagnostic tool. There is no catalogue to browse, no list
+to compare, no chatbot. One moment in, one decision out.
+
+## How YouCam is used
+
+YouCam is inside the decision loop, not decoration.
+
+SKIN AI — INFORMS THE DECISION
+  POST /s2s/v2.0/file/skin-analysis → upload
+  POST /s2s/v2.0/task/skin-analysis → task
+  GET  /s2s/v2.0/task/skin-analysis/{id} → poll
+
+  Skin AI requires the face to fill 60% of the image width. MIRROR OPS
+  photographs an OUTFIT, where the face is small. Rather than asking for a
+  second photo — which would break a 90-second flow — the server detects and
+  crops the face from the same shot, then sends the crop. The original goes to
+  the try-on untouched.
+
+  YouCam returns HEALTH scores (higher = healthier skin). The engine reasons in
+  SEVERITY, so redness, oiliness and texture are inverted on the way in.
+  Without that, flawless skin would read as heavily marked.
+
+  Skin AI informs; it never hijacks the decision. Its influence is capped at
+  0.08 and only applies past explicit materiality thresholds — a test enforces
+  this. If Skin AI is unavailable, the journey continues without it, says so,
+  and lowers its stated confidence.
+
+APPAREL VTO — PROVES THE DECISION
+  POST /s2s/v2.0/file/cloth → upload person + garment
+  POST /s2s/v2.0/task/cloth → task (src_file_id, ref_file_id, garment_category)
+  GET  /s2s/v2.0/task/cloth/{id} → poll
+
+  Only the winning intervention is rendered. Six candidates are scored, one is
+  proven. One journey costs one skin analysis and one try-on — enforced by
+  idempotency keys and by a test that counts provider calls.
+
+  Users can also photograph a garment they're actually considering and see it
+  on themselves. That's the real moment of hesitation: not a catalogue, a
+  specific jacket.
+
+## Honest by construction
+
+- Offline previews are watermarked "SIMULATED PREVIEW — not generated by
+  YouCam", the provider is renamed, and a `simulated: true` flag travels all
+  the way to the UI. A result that didn't come from YouCam never pretends it
+  did.
+- Undeclared garments get an explicit prior AND lower decision confidence. The
+  product never claims to have measured what it hasn't.
+- The fit verdict names the weakest piece only when one genuinely stands out.
+  When everything is equal, it says so rather than inventing a culprit.
+- Skin results are framed as visual observations, never as a diagnosis.
+
+## Consumer and retail value
+
+For consumers: the uncertainty is resolved in under 90 seconds, with visual
+proof, and without a shopping decision attached.
+
+For retail: the decision layer is the product, and a catalogue is just a
+manifest of `id → URL`. A retailer's existing product images become MIRROR OPS
+garments with one command and no further integration. The funnel is
+uncertainty → ONE CHANGE → visual proof → decision confidence.
+
+We deliberately do NOT claim reduced returns: we have no evidence for it.
+
+## Engineering
+
+Next.js 14 + FastAPI + PostgreSQL. The decision engine is a pure domain module
+— no HTTP, no database, no LLM — so it is deterministic and testable in
+isolation.
+
+233 backend tests, 28 frontend tests, and a 38-check end-to-end audit that runs
+against the assembled system. The audit verifies things a unit test can't: that
+a piece declared absent is never listed as "kept", that a FIT verdict never
+coexists with a demand to change something, that media URLs actually resolve.
+```
+
+### 2.3 — « Built with »
+
+```
+next.js, react, typescript, fastapi, python, postgresql, docker, nginx,
+youcam-skin-ai, youcam-apparel-vto, opencv, pillow
+```
+
+### 2.4 — Champs courts
+
+**Inspiration**
+
+```
+Standing in front of a mirror ten minutes before something that matters, and
+not knowing whether to change anything. Every tool we found answered "what
+should I wear?" None answered "does this work here?"
+```
+
+**What's next**
+
+```
+Feedback on the decision — the one signal that would let the scoring model be
+calibrated on evidence rather than judgement. Retail catalogues via URL
+manifest. And a second look at Skin AI framing: on a full-body shot the face is
+often too small even after cropping, which is a real constraint worth designing
+around rather than hiding.
+```
+
+---
+
+## 3. Vidéo — script minuté (2 min 40)
+
+À tourner **sur téléphone**, en portrait : c'est l'appareil pour lequel le
+produit est conçu, et le règlement demande une démonstration sur cet appareil.
+
+| Temps | À l'écran | Voix off (anglais) |
+|---|---|---|
+| 0:00–0:12 | Accueil, logo, signature | *Ten minutes before something that matters, you don't need twenty outfit ideas. You need to know if what you're wearing works — and if not, what single thing to change.* |
+| 0:12–0:25 | Écran Moment : interview · professional · under 5 min | *Mirror Ops starts with the moment, not the wardrobe. The same outfit is right for a dinner and wrong for a wedding.* |
+| 0:25–0:45 | Prise de photo réelle, puces de tenue, « How dressed up is it? » | *One photo. Which pieces you're wearing. How dressed up it is. That's all it asks.* |
+| 0:45–1:00 | Écran Analyzing | *Behind this, YouCam Skin AI reads visual signals from your appearance. Because Skin AI needs a close-up and we photograph an outfit, the server crops your face from the same shot — no second photo.* |
+| 1:00–1:20 | **Verdict d'adéquation** — « Almost there » + jauge | *First answer: does this look fit the moment? Almost there. The outfit works, but one piece pulls it down.* |
+| 1:20–1:45 | **ONE CHANGE** + registre Keep | *Then the decision. One change. Not a list — one. And everything else stays, explicitly.* |
+| 1:45–2:15 | VTO : bouton, attente, **Before/After** au doigt | *YouCam Apparel Virtual Try-On proves it. Only the winning change is rendered — one journey, one try-on.* |
+| 2:15–2:30 | « Try a piece of your own » → photo d'une veste → résultat | *Or photograph the jacket you're actually hesitating about, and see it on you.* |
+| 2:30–2:40 | Écran Ready | *One change. That's all you needed.* |
+
+### Plan B à filmer aussi
+
+Refaire l'écran Moment avec **wedding**, sur la même photo, pour montrer un
+verdict différent. Trois secondes suffisent et cela démontre le contextuel
+mieux que n'importe quelle phrase.
+
+### Avant de tourner
+
+```powershell
+.\scripts\mirror-ops.ps1 audit      # 0 FAIL attendu
+.\scripts\mirror-ops.ps1 garments   # « tous exploitables »
+```
+
+- `YOUCAM_MODE=live` — sinon les aperçus portent « simulated », visible à l'image
+- Catalogue remplacé par de vraies photos, sinon `error_editing_failed`
+- Cinq parcours d'affilée sans erreur avant d'enregistrer
+- Le try-on prend 13 à 15 secondes : prévoir une coupe, ou occuper l'attente
+- **Aucune musique sous droits.** Voix off seule, ou musique explicitement
+  libre de droits. Vérifier aussi qu'aucune marque tierce n'apparaît dans le
+  cadre — vêtements logotypés compris.
+
+---
+
+## 4. Captures d'écran (six)
+
+Prises sur téléphone, en portrait, mode live.
+
+1. **Accueil** — signature *Fit the moment. One change.*
+2. **Moment** — les trois questions, une option sélectionnée dans chacune
+3. **Your look** — photo, puces de tenue, et la ligne
+   *« Mirror Ops will read this as… — and no jacket »*
+4. **Verdict + ONE CHANGE** — la capture qui compte : « Almost there », la
+   jauge d'adéquation, le verdict, et le registre Keep
+5. **Before / After** — curseur à mi-course, les deux étiquettes visibles
+6. **Ready** — le résultat affiché et la conclusion
+
+Éviter : `simulated`, catalogue de substitution, `confidence: low` si un
+parcours mieux renseigné donne mieux.
+
+---
+
+## 5. Ce qu'il faut pouvoir répondre au jury
+
+**Pourquoi un seul changement ?** Le problème n'est pas le manque d'options,
+c'est l'incertitude au moment de décider. On ne redessine pas la personne, on
+corrige l'écart.
+
+**Comment savez-vous que ça ne convient pas ?** Le look est projeté sur ce que
+l'occasion demande, pas jugé dans l'absolu. Changez « voyage » en « mariage » à
+l'écran 2 : le verdict change sous vos yeux.
+
+**Pourquoi Skin AI, sur un produit vestimentaire ?** Il donne des signaux
+visuels de contexte. Son influence est plafonnée à 0,08 et testée : une peau
+très marquée ne change pas la décision vestimentaire. Il informe, il ne décide
+pas.
+
+**Et si rien ne doit changer ?** Le verdict est FIT, l'action est NO CHANGE, et
+aucun essayage n'est consommé.
+
+**Qu'est-ce qui n'est pas prêt ?** Le retour utilisateur sur la décision n'est
+pas implémenté, et le catalogue livré est un repli. Les deux sont documentés
+dans `docs/PRODUCT_REVIEW.md` — mieux vaut le dire que se le faire dire.
+
+---
+
+## 6. Liens à fournir
+
+| Champ Devpost | Valeur |
+|---|---|
+| Repository URL | `https://github.com/…/mirror-ops` |
+| Demo / try it out | `https://mirror-ops.vylantic.com` |
+| Video URL | YouTube, public, non répertorié refusé |
+
+Si le dépôt est privé : inviter `contact_event@PerfectCorp.com` **avant** la
+clôture, et le vérifier.

@@ -490,15 +490,62 @@ Les visuels livrés sont des aplats générés : suffisants pour `YOUCAM_MODE=mo
 `error_editing_failed`. Le volume `mirror_garments` reçoit vos vraies photos et
 survit aux reconstructions d'image.
 
-```bash
-# Copier vos photos dans le volume, puis importer
-docker cp ~/vetements/. mirror-ops-api:/srv/api/var/import/
-docker compose -f docker-compose.prod.yml exec api \
-  python scripts/import_garments.py /srv/api/var/import
-docker compose -f docker-compose.prod.yml restart api
+L'opération se fait en trois temps : vos photos sont sur votre poste, pas sur le
+serveur, et le conteneur n'a pas de répertoire d'accueil par défaut.
+
+**1. Du poste vers le serveur**
+
+```powershell
+# Windows / PowerShell
+scp -r $HOME\Downloads\clothing deploy@XX.XX.XX.XX:~/vetements
 ```
 
-Vérifier : `GET /api/v1/garments` doit renvoyer `"placeholder": false` partout.
+```bash
+# macOS / Linux
+scp -r ~/Downloads/clothing deploy@XX.XX.XX.XX:~/vetements
+```
+
+**2. Du serveur vers le conteneur**
+
+```bash
+cd /var/www/mirror-ops
+
+# `docker cp` exige que le répertoire de destination existe déjà.
+docker compose -f docker-compose.prod.yml exec api mkdir -p /srv/api/var/import
+docker cp ~/vetements/. mirror-ops-api:/srv/api/var/import/
+```
+
+**3. Importer, vérifier, nettoyer**
+
+```bash
+# Toujours commencer par la simulation : elle affiche la correspondance
+# nom de fichier → pièce du catalogue, sans rien écrire.
+docker compose -f docker-compose.prod.yml exec api \
+  python scripts/import_garments.py /srv/api/var/import --dry-run
+
+docker compose -f docker-compose.prod.yml exec api \
+  python scripts/import_garments.py /srv/api/var/import
+
+# Redémarrage : les pièces AJOUTÉES au catalogue ne sont lues qu'au démarrage.
+# (Le remplacement d'un visuel existant, lui, prend effet immédiatement.)
+docker compose -f docker-compose.prod.yml restart api
+
+# Vérifier
+docker compose -f docker-compose.prod.yml exec api python scripts/check_garments.py
+curl -s https://api.mirror-ops.vylantic.com/api/v1/garments \
+  | jq '.garments[] | {id, placeholder}'
+
+# Le répertoire temporaire n'a plus lieu d'être
+docker compose -f docker-compose.prod.yml exec api rm -rf /srv/api/var/import
+```
+
+Attendu : `"placeholder": false` sur toutes les pièces, et
+`garment_catalog_is_placeholder` disparaît des logs au démarrage suivant.
+
+> Les noms de fichiers suffisent à classer les photos : `veste-marine.jpg`,
+> `chemise blanche.png`, `sneakers1.jpg`, en français comme en anglais. Une
+> catégorie pleine fait grandir le catalogue plutôt qu'écarter la photo. Ce qui
+> n'est pas reconnu est listé, jamais deviné.
 
 ---
 
@@ -830,6 +877,18 @@ curl -s https://api.mirror-ops.vylantic.com/api/v1/garments | jq '.garments[] | 
 `"placeholder": true` → le visuel est un aplat généré, le try-on n'a rien à
 segmenter. Voir §11.5. Le champ `garment_source` de l'erreur dit par ailleurs si
 la pièce venait du catalogue ou d'un import utilisateur.
+
+### `lstat ... no such file or directory` sur `docker cp`
+
+Le chemin source est lu **sur le serveur**, pas sur votre poste. Transférer
+d'abord les photos par `scp` (voir §11.5), puis relancer la copie.
+
+Si l'erreur porte sur la destination, c'est que `/srv/api/var/import` n'existe
+pas dans le conteneur : `docker cp` ne crée pas le répertoire cible.
+
+```bash
+docker compose -f docker-compose.prod.yml exec api mkdir -p /srv/api/var/import
+```
 
 ### `host not found in upstream` au rechargement de Nginx
 

@@ -21,6 +21,7 @@ Positionnement complet et règles non négociables : [`docs/POSITIONING.md`](doc
 Mise en production sur `mirror-ops.vylantic.com` : [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 Revue produit, UX et business — constats mesurés, corrections et arbitrages
 ouverts : [`docs/PRODUCT_REVIEW.md`](docs/PRODUCT_REVIEW.md).
+Dossier de soumission au hackathon YouCam : [`docs/SUBMISSION.md`](docs/SUBMISSION.md).
 
 Ce dépôt contient l'implémentation complète : le backend FastAPI (`apps/api`)
 et l'interface Next.js (`apps/web`), reliés par un contrat TypeScript partagé
@@ -530,6 +531,13 @@ magenta) et tout ce qui reste (en mercure, marqué « Keep ») — la hiérarchi
 visuelle porte elle-même la thèse du produit.
 
 Détail : [`apps/web/README.md`](apps/web/README.md).
+
+---
+
+## Licence
+
+MIT — voir [`LICENSE`](LICENSE). Ressources tierces, visuels du catalogue et
+polices : [`NOTICE.md`](NOTICE.md).
 
 ---
 
