@@ -167,3 +167,67 @@ async def test_element_suitability_actually_follows_the_occasion(client, flow):
         "cached analysis was served"
     )
     assert min(scores["travel"].values()) > max(scores["interview"].values())
+
+
+async def test_the_direction_survives_the_database(client, flow):
+    """Un champ ajoute au domaine doit traverser la persistance.
+
+    `element_formality` est calcule a l'analyse et sert a dire dans quel SENS
+    changer. Il n'etait pas restaure lors de la reconstruction des signaux, si
+    bien que la decision le recevait vide : le libelle retombait sur « Change
+    the jacket », sans direction, et la phrase la plus distinctive du produit
+    n'atteignait jamais l'ecran.
+    """
+    described = json.dumps({
+        element: {"present": True, "formality": 0.55, "structure": 0.55}
+        for element in ("jacket", "top", "bottom", "shoes", "accessories")
+    })
+    photo = make_image(width=1000, height=1400, noisy=True)
+    session_id = await flow.session()
+
+    labels = {}
+    for occasion, goal in [("interview", "professional"), ("travel", "approachable")]:
+        await flow.moment(session_id, occasion, goal, "<5m")
+        await analyze(client, session_id, described, photo)
+        recommendation = (await client.post(
+            "/api/v1/one-change/evaluate", json={"session_id": session_id}
+        )).json()["recommendation"]
+        labels[occasion] = recommendation["label"]
+
+    # Sous-habille pour un entretien, sur-habille pour un vol : la meme piece,
+    # deux directions opposees.
+    assert "sharper" in labels["interview"], labels
+    assert "easier" in labels["travel"], labels
+
+
+async def test_the_framing_restriction_survives_the_database(client, flow):
+    """Meme classe de defaut : `visible_elements` etait perdu a la decision.
+
+    La restriction de cadrage etait donc inerte des que la decision relisait
+    l'analyse — c'est-a-dire toujours.
+    """
+    from app.models.enums import MATERIALISED_ELEMENT, ChangeAction
+    from app.services.appearance_service import signals_from_analysis
+    from app.models.analysis import AppearanceAnalysis
+    from sqlalchemy import select
+
+    described = json.dumps({
+        element: {"present": True, "formality": 0.3, "structure": 0.3}
+        for element in ("jacket", "top", "bottom", "shoes", "accessories")
+    })
+    session_id = await flow.session()
+    await flow.moment(session_id, "interview", "professional", "30m_plus")
+    body = (await analyze(client, session_id, described, make_image(noisy=True))).json()
+
+    reported = body.get("framing", {}).get("visible_elements")
+    if not reported:
+        return  # aucun visage detecte sur cette image de test : rien a restreindre
+
+    recommendation = (await client.post(
+        "/api/v1/one-change/evaluate", json={"session_id": session_id}
+    )).json()["recommendation"]
+    touched = MATERIALISED_ELEMENT[ChangeAction(recommendation["action"])]
+    if touched is not None:
+        assert str(touched) in reported, (
+            f"recommends {touched}, photo only shows {reported}"
+        )

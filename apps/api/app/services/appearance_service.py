@@ -277,6 +277,25 @@ def signals_from_analysis(analysis: AppearanceAnalysis) -> AppearanceSignals:
             available=bool(skin_raw),
             source=analysis.skin_source,
         ),
+        # Ces deux champs traversent la base, comme le reste.
+        #
+        # Ils avaient ete ajoutes au domaine sans etre restaures ici : la
+        # decision les recevait vides. `element_formality` sert a dire dans
+        # quel SENS changer — le libelle retombait donc sur « Change the
+        # jacket », sans direction. `visible_elements` borne la decision a ce
+        # que la photo montre — la restriction de cadrage etait donc inerte.
+        #
+        # Un champ ajoute a un objet de domaine doit etre suivi jusqu'au bout
+        # de son chemin, y compris la ou l'objet est RECONSTRUIT.
+        element_formality={
+            OutfitElement(key): float(value["formality"])
+            for key, value in outfit.items()
+            if value.get("present", True) and value.get("formality") is not None
+        },
+        visible_elements=(
+            {OutfitElement(e) for e in (analysis.framing or {}).get("visible_elements", [])}
+            or None
+        ),
     )
 
 

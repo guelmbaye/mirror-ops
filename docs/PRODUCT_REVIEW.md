@@ -578,9 +578,32 @@ than useless.
 Three CSS assertions cover it, verified by flipping the rule back and watching
 the first one fail.
 
-## 23. To arbitrate — product decisions that are yours
+## 23. Two domain fields that never crossed the database — fixed
 
-### 23.1 The journey captures no value
+Testing for the video, nothing on the decision screen matched the script: no
+"sharper", no "easier", just "Change the jacket." The natural assumption was a
+stale deployment. It was not — the API itself returned the plain label.
+
+`element_formality` is computed during analysis and is what lets the engine say
+which *way* to change. `signals_from_analysis` — which rebuilds the signals from
+the stored analysis, and runs on every decision — never restored it. The
+decision received an empty map, so the direction could never be computed. The
+same omission had silenced `visible_elements`: the framing restriction was inert
+the moment the decision re-read the analysis, which is to say always.
+
+Both were added to the domain object and followed as far as the *first* code
+path, not as far as the object is **reconstructed**. Two tests now walk the full
+round trip: same photo, two moments, and the labels must read "sharper" and
+"easier". Removing the restoration makes the first fail.
+
+Worth noting how close this came to shipping: the unit tests passed, the sweep
+passed, the audit passed. All of them build signals in memory. Only a journey
+through the database exposed it — which is exactly what the end-to-end audit
+exists for, and it was not checking this.
+
+## 24. To arbitrate — product decisions that are yours
+
+### 24.1 The journey captures no value
 
 The *Ready* screen ends on "Start another moment". The positioning document §10
 nonetheless mentions a retail extension: *uncertainty → ONE CHANGE → proof →
@@ -595,7 +618,7 @@ doing nothing and owning it.
 dilutes the idea — is worth more than an improvised business hook, and the jury
 scores *decision confidence*, not conversion.
 
-### 23.2 No user feedback on the decision
+### 24.2 No user feedback on the decision
 
 The product rules and never listens. A "that wasn't the right piece" on the final
 screen would cost one button and would yield the only data that allows
@@ -604,7 +627,7 @@ thing an enterprise buyer will ask for.
 
 Not done: it requires deciding what to measure, and where to store it.
 
-### 23.3 The catalogue remains a crutch
+### 24.3 The catalogue remains a crutch
 
 Twelve generated flat shapes. "Try a piece of your own" sidesteps the problem and
 is the best real-world use, but the default demo still goes through the
@@ -618,7 +641,7 @@ For the retail extension of positioning §10, the manifest is what matters: a
 retailer already has product visuals online, and their catalogue becomes an
 `id → URL` list with no further integration.
 
-### 23.4 The skin signal is almost always absent in real conditions
+### 24.4 The skin signal is almost always absent in real conditions
 
 Skin AI requires a face filling 60% of the width; MIRROR OPS photographs an
 outfit. The server-side crop answers the problem, but fails as soon as the face
@@ -632,7 +655,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 24. Out of scope — accepted here, blocking in production
+## 25. Out of scope — accepted here, blocking in production
 
 | Missing | Why it blocks elsewhere |
 |---|---|
@@ -645,7 +668,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 25. What holds
+## 26. What holds
 
 The constraint is respected end to end: a single recommendation, never a list,
 `NO_CHANGE` possible, no invented value, the fallback admitted in plain words,

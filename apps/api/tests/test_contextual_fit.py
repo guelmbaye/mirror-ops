@@ -538,8 +538,15 @@ def test_a_homogeneous_outfit_gets_no_anomaly_bonus():
     assert all(anomaly_lift(ctx, action) == 0.0 for action in ChangeAction)
 
 
-def test_the_middle_dressiness_is_the_one_that_shows_no_contrast():
-    """Documente pourquoi la demonstration ne doit pas utiliser « In between ».
+def test_the_middle_dressiness_separates_some_pairs_and_not_others():
+    """Nuance mesuree : « In between » n'efface pas TOUT contraste.
+
+    Entretien et voyage y atterrissent a quelques points l'un de l'autre, avec
+    la meme recommandation — d'ou l'avertissement initial. Mais entretien et
+    diner s'y separent nettement, et c'est la paire retenue pour la video : le
+    niveau median est la reponse honnete pour un blazer et un chino, et forcer
+    un autre niveau pour obtenir un meilleur contraste reviendrait a mettre en
+    scene la demonstration.
 
     Le niveau median est equidistant de toutes les occasions par construction :
     un entretien et un voyage y atterrissent a quelques points l'un de l'autre,
@@ -558,6 +565,19 @@ def test_the_middle_dressiness_is_the_one_that_shows_no_contrast():
     }
     assert abs(middle[Occasion.INTERVIEW].fit.score - middle[Occasion.TRAVEL].fit.score) <= 6
     assert middle[Occasion.INTERVIEW].action == middle[Occasion.TRAVEL].action
+
+    # Mais la paire de la video, elle, separe : verdict ET decision changent.
+    demo = {
+        occasion: default_engine.evaluate(
+            context(occasion, goal, interface_outfit(0.55), quality=0.9,
+                    time=TimeAvailable.UNDER_5M)
+        )
+        for occasion, goal in [(Occasion.INTERVIEW, Goal.PROFESSIONAL),
+                               (Occasion.DINNER, Goal.ELEGANT)]
+    }
+    assert demo[Occasion.INTERVIEW].action != demo[Occasion.DINNER].action
+    assert demo[Occasion.DINNER].action is ChangeAction.NO_CHANGE
+    assert demo[Occasion.INTERVIEW].fit.state != demo[Occasion.DINNER].fit.state
 
     # Les deux extremes, eux, separent nettement.
     for level in (0.22, 0.88):

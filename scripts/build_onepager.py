@@ -262,7 +262,7 @@ def page_two(s: dict) -> list:
     left = [
         Paragraph("VERIFIED, NOT ASSUMED", s["h"]),
         Paragraph(
-            "233 backend tests · 28 frontend tests · a 38-check end-to-end audit against "
+            "320 backend tests · 34 frontend tests · a 42-check end-to-end audit against "
             "the assembled system.", s["body"],
         ),
         Spacer(1, 4),
@@ -273,8 +273,9 @@ def page_two(s: dict) -> list:
         ),
         Spacer(1, 4),
         Paragraph(
-            "Live try-on confirmed end to end: <b>simulated: false</b>, 14.4 s, on a real "
-            "YouCam render.", s["body"],
+            "Both integrations confirmed live on a real full-length photograph: skin "
+            "metrics returned, and a try-on render with <b>simulated: false</b>.",
+            s["body"],
         ),
     ]
     right = [

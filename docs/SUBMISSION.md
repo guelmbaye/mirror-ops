@@ -150,6 +150,23 @@ not. Users saw their photo upright while the server analysed it rotated 90° —
 which made faces undetectable and poses unreadable. It was invisible in tests
 until we fabricated EXIF data.
 
+**An error code that meant something else.** Skin AI kept answering
+`error_src_face_too_small`. We widened the crop, twice. Then we measured across
+three real photographs: the rejected one carried a **906 px** face, the accepted
+one **289 px**. Size was never the issue — the rejected photo had sunglasses,
+which defeat frontal face detection. We had been optimising the wrong variable
+for two days.
+
+**A dependency that imported and did not work.** `opencv-python-headless` with no
+upper bound installed OpenCV 5.0, which removed Haar cascades outright. It
+imports cleanly and fails on every call, so nothing at startup reported it and
+face detection was silently dead.
+
+**Configuration that depended on where you stood.** Our diagnostic probe reported
+"live mode" and then failed on a missing API key: the settings file was resolved
+relative to the working directory, so tooling launched from the repository root
+read a different file than the API did. Half our diagnostics had been worthless.
+
 **Going back changed nothing.** After adding back-navigation, correcting the
 occasion or the outfit left the result identical. Two independent causes: a
 duplicate moment row tie-broken by a random UUID, and an idempotency key that
@@ -173,17 +190,25 @@ explicit prior *and* lower confidence.
 users to retake a perfectly good photo because their *outfit* was undescribed,
 which no amount of retaking could fix.
 
-**An audit that catches what unit tests can't.** 233 backend tests and 28
-frontend tests, plus a 38-check end-to-end audit against the assembled system.
+**An audit that catches what unit tests can't.** 320 backend tests and 34
+frontend tests, plus a 42-check end-to-end audit against the assembled system.
 It verifies that a piece declared absent is never listed as "kept", that a FIT
 verdict never coexists with a demanded change, and that media URLs actually
 resolve — a class of failure that returns HTTP 201 while showing nothing.
 
-**The live integration is verified, not assumed.** Same session, two attempts: a
-placeholder catalogue garment fails with `error_editing_failed`; a real
-photograph returns `simulated: false` in 14.4 seconds. Every try-on failure now
-reports whether the garment came from the catalogue or from the user, so that
-diagnosis takes one line instead of one afternoon.
+**Both integrations are verified live, not assumed.** Skin AI returns redness,
+radiance, oiliness and texture on a real full-length photograph; Apparel VTO
+returns a genuine render with `simulated: false`. Getting there settled two
+things we could not have guessed: a photo cropped into a 1:3.12 strip breaks the
+try-on, and `error_src_face_too_small` usually means "I cannot find a face" —
+the rejected photo carried a 906 px face while the accepted one carried 289 px.
+The difference was sunglasses.
+
+Every try-on failure now reports whether the garment came from the catalogue or
+from the user, so diagnosis takes one line instead of one afternoon. And because
+some references are refused for reasons no check of ours predicts, a failed
+render falls back once to the next piece in the same category — the decision
+never changes, only the piece used as proof.
 
 ## What we learned
 
@@ -607,8 +632,10 @@ clothing decision. It informs; it does not decide.
 and no try-on credit is consumed.
 
 **What isn't ready?** There is no user feedback on the decision, and the shipped
-catalogue is a fallback. Both are documented in `docs/PRODUCT_REVIEW.md` — better
-said than found out.
+catalogue is a fallback. `docs/PRODUCT_REVIEW.md` records twenty-odd defects
+found and fixed during live testing, each with what it was, why it happened, and
+the test that now prevents it — including several where the first diagnosis was
+wrong. Better said than found out.
 
 ---
 

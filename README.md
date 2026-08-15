@@ -98,7 +98,7 @@ mirror-ops/
 │   │   │   ├── integrations/youcam/ # client, adapters, mappers, offline providers
 │   │   │   ├── services/            # orchestration, storage, idempotency, cleanup
 │   │   │   └── assets/garments/     # small controlled catalogue
-│   │   └── tests/                   # 233 tests
+│   │   └── tests/                   # 320 tests
 │   └── web/                         # Next.js interface (App Router, TypeScript)
 │       └── src/
 │           ├── app/                 # 7 screens: / moment look analyzing one-change compare ready
@@ -385,7 +385,7 @@ Detail: [`docs/ONE_CHANGE_ENGINE.md`](docs/ONE_CHANGE_ENGINE.md).
 ## 7. Tests
 
 ```bash
-cd apps/api && python -m pytest -q      # 233 tests
+cd apps/api && python -m pytest -q      # 320 tests
 ```
 
 | File | Covers |
@@ -417,7 +417,7 @@ cd apps/api && python -m pytest -q      # 233 tests
 On the interface side:
 
 ```bash
-npm run test --workspace @mirror-ops/web    # 28 render tests (vitest + jsdom)
+npm run test --workspace @mirror-ops/web    # 34 render tests (vitest + jsdom)
 npm run typecheck                           # app and tests, two passes
 npm run build                               # production build
 ```
@@ -430,7 +430,7 @@ python scripts/audit_journey.py       # or: make audit
 ```
 
 It walks the seven screens, prints the data going in and out of every call, and
-verifies 38 invariants: coherence between what is declared, what changes and
+verifies 42 invariants: coherence between what is declared, what changes and
 what is kept; agreement between the fit verdict and the action; media actually
 reachable; refusals that name the right remedy. `FAIL` blocks, `WARN` flags what
 will limit the demo. **The API must be running** — the audit tests the system,

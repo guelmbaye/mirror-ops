@@ -151,11 +151,13 @@ def audit(client: httpx.Client, api: str, photo: bytes, args_base: str) -> None:
 
     # ------------------------------------------------------------ ecran 3-4 : analyse
     section("Ecran 3-4 — Your look / Analyzing  ·  POST /appearance/analyze")
+    # Le niveau d'habillement est REQUIS par l'interface : l'omettre ici
+    # testait une charge utile que le produit n'envoie plus.
     outfit = {
-        "jacket": {"present": True},
-        "top": {"present": True},
-        "bottom": {"present": True},
-        "shoes": {"present": True},
+        "jacket": {"present": True, "formality": 0.55, "structure": 0.55},
+        "top": {"present": True, "formality": 0.55, "structure": 0.55},
+        "bottom": {"present": True, "formality": 0.55, "structure": 0.55},
+        "shoes": {"present": True, "formality": 0.55, "structure": 0.55},
         "accessories": {"present": False},
     }
     print(f"       → outfit = {json.dumps(outfit)}")
@@ -210,6 +212,18 @@ def audit(client: httpx.Client, api: str, photo: bytes, args_base: str) -> None:
                    "l'element mis en cause est nomme dans la phrase")
 
     expect(recommendation["action"], "une action, et une seule")
+
+    # La direction traverse la base : deux champs du domaine ne l'ont pas fait,
+    # et le defaut n'apparaissait qu'au terme d'un parcours complet.
+    if recommendation["action"] != "NO_CHANGE" and outfit["top"].get("formality") is not None:
+        directional = any(
+            word in recommendation["label"] for word in ("sharper", "easier")
+        )
+        check(
+            "OK" if directional else "WARN",
+            "la recommandation dit dans quel sens changer",
+            "" if directional else f"label sans direction : {recommendation['label']!r}",
+        )
     expect(bool(recommendation["why"]), "la decision est justifiee")
     expect(isinstance(recommendation["keep"], list), "ce qui reste est enumere")
 

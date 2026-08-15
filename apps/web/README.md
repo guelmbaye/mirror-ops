@@ -69,6 +69,12 @@ browser (`sessionStorage`). Every screen re-reads `GET /sessions/{id}`: a refres
 recovers exactly the same decision — which matters as much for a demo as for
 trust.
 
+**The comparator opposes two identical framings.** When a photo has to be
+prepared before being sent — an extreme aspect ratio letterboxed to 9:16 — the
+*before* state serves that prepared image, not the original. Otherwise the
+difference on screen would include a reframing, and the proof would be proving
+the wrong thing.
+
 **Nothing is pre-selected on *Your look*.** The outfit chips start empty, so an
 unticked piece means the user went through the list and said no — not that they
 skipped the question. Mixed defaults previously made the product announce
@@ -176,6 +182,10 @@ configuration are therefore **excluded**: without that, compiling for production
 would fail as soon as a development dependency is missing — the normal case on a
 build server. They stay verified separately, with the same rigour, through
 `tsconfig.test.json`.
+
+`tests/preview.test.tsx` asserts the photo preview shows the whole image. It
+once cropped to fill a 3/4 frame, so a full-length shot lost its legs — while the
+instruction above it asked for as much of the look as possible.
 
 `tests/analyzing.test.tsx` mounts the analysing screen **under StrictMode** —
 the development conditions where React mounts, unmounts and remounts every
