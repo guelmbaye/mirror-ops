@@ -193,8 +193,9 @@ docker compose up --build      # web :3000 · api :8000 · PostgreSQL :5432
 
 1. Create the YouCam / Perfect Corp account and check **remaining credits**.
 2. Create an API key: <https://yce.perfectcorp.com/api-console/en/api-keys/>
-3. Fill in **`apps/api/.env`** — the only file the API reads. The root `.env` is
-   for `docker compose` alone:
+3. Fill in **`apps/api/.env`** — the only file the API reads, resolved by
+   absolute path so it works from any working directory. The root `.env` is for
+   `docker compose` alone:
 
    ```dotenv
    YOUCAM_MODE=live
@@ -254,11 +255,27 @@ docker compose up --build      # web :3000 · api :8000 · PostgreSQL :5432
    Images are downloaded **once**, normalised, then served locally: the journey
    never depends on a third-party host at the moment it matters.
 
-   To isolate a try-on failure without running the whole journey:
+   Before recording a demo, run both probes on the exact photo you will film
+   with — the framing decides which pieces the engine may even recommend.
+
+   To isolate a failure without running the whole journey:
 
    ```bash
-   python scripts/probe_vto.py my-photo.jpg jacket_01
+   python scripts/probe_vto.py my-photo.jpg jacket_01   # one try-on, raw responses
+   python scripts/probe_skin.py my-photo.jpg            # crop ratios, one by one
    ```
+
+   `probe_skin.py` also works offline: it reports what the server actually
+   detects on a given photo — face size, framing, which elements are in shot,
+   and whether the crop has to be upscaled — without sending anything. That is
+   the fastest way to explain a `skin_skipped_no_face` on a photo that looks
+   perfectly usable.
+
+   `probe_skin.py` exists because the 60%-of-width rule was not enough on its
+   own: a crop satisfying it still came back `error_src_face_too_small`. It
+   sends the same face at several tightness levels and reports which one the
+   provider accepts, so the setting comes from measurement rather than from
+   reading the documentation.
 
 5. **Restart the API**, then check:
    `curl localhost:8000/api/v1/health/dependencies` → `"youcam": "configured"`.
@@ -358,6 +375,9 @@ an explanation derived from the factors that actually dominated, `NO_CHANGE`
 possible, time taken into account, no LLM required, no medical claim.
 
 Calibration bench: `python scripts/calibrate_engine.py`.
+Occasion contrast, for choosing a demo pair from data: `python scripts/demo_pairs.py`.
+Exhaustive sweep of the decision space — 43,200 decisions, every invariant
+checked: `python scripts/sweep_decisions.py`.
 Detail: [`docs/ONE_CHANGE_ENGINE.md`](docs/ONE_CHANGE_ENGINE.md).
 
 ---
@@ -383,6 +403,9 @@ cd apps/api && python -m pytest -q      # 233 tests
 | `test_task_failures.py` | a failed task names its cause and guides recovery |
 | `test_face_crop.py` | the crop sent to Skin AI satisfies its 60% constraint |
 | `test_image_orientation.py` | a phone portrait photo is never processed sideways |
+| `test_framing.py` | the decision never names a piece the photo cannot show |
+| `test_action_space.py` | every declared action is actually evaluated, and can win |
+| `test_invariants_sweep.py` | every invariant holds across thousands of input combinations |
 | `test_own_garment.py` | a user can try their own piece, isolated per session |
 | `test_try_another.py` | swapping a piece never changes the decision (rule 3) |
 | `test_garment_audit.py` | the catalogue declares itself a placeholder while it is one; user photos survive updates |
@@ -455,19 +478,24 @@ claimed: we have no evidence for it.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `409 INVALID_STATE` | step skipped | follow `moment → analyze → one-change → vto` |
-| `422 INVALID_IMAGE` | unreadable photo, or under 320 px | retake the photo |
+| `422 INVALID_IMAGE` | unreadable photo, or under 320 px on either side | the message names the actual size — a screenshot or a cropped copy is the usual cause, so send the original file |
 | `INVALID_REQUEST` on `/one-change/evaluate` | no piece declared | tick what you're wearing on *Your look* — the photo is not at fault. In `APP_ENV=development`, `details` carries the exact numbers |
 | `409 VTO_NOT_APPLICABLE` | the decision is `NO_CHANGE` | normal: nothing to preview |
 | `410 MEDIA_LINK_EXPIRED` | signed URL expired | re-read the session via `GET /sessions/{id}` |
 | `"youcam": "mock_mode"` | live not enabled | set `YOUCAM_MODE=live` in `apps/api/.env`, restart |
 | `"youcam": "missing_credentials"` | `YOUCAM_API_KEY` absent | one variable is enough on v2 |
 | `"youcam": "missing_dependency"` | `cryptography` not installed | `cd apps/api && pip install -r requirements.txt`, restart |
+| `"face_detection": "unavailable"`, or `module 'cv2' has no attribute 'CascadeClassifier'` in the logs | **OpenCV 5.0 removed Haar cascades** — `cv2.data.haarcascades` exists but is empty | `pip install "opencv-python-headless>=4.10,<5"`. Until then Skin AI is never called and framing is unmeasured — the journey still works, without a skin signal |
 | `unable to open database file` | `var/` missing (git-ignored) | nothing to do: the API recreates it at startup |
 | `column X does not exist` | database predating a new field | nothing to do: the API adds missing columns at startup. To apply it separately: `python scripts/sync_schema.py` |
 | `error_editing_failed` with `"garment_source": "catalog"` | placeholder catalogue: the try-on has nothing to work from | `python scripts/import_garments.py <folder>`, then `python scripts/check_garments.py` |
 | `"garments": "placeholder"` | same, reported by the API itself | same |
+| `error_editing_failed` on a photo cropped into a strip | ratios beyond 1:2.1 confuse the try-on | handled automatically — the image is letterboxed to 9:16, look for `source_letterboxed` in the logs |
+| `error_editing_failed` on one catalogue piece while another works | some references are refused by the renderer for reasons we cannot detect in advance | handled automatically — one fallback to the next piece in the same category, logged as `vto_fallback_garment` |
+| `error_editing_failed` on a garment that is a real photograph | the reference shows someone **wearing** the piece — the try-on has to segment the garment and expects it alone: flat, on a hanger, or ghost-mannequin | `python scripts/check_garments.py` now flags these. Re-import with product-style shots |
 | `error_editing_failed` with `"garment_source": "uploaded"` | not the catalogue any more: the garment photo or the source photo is at fault | garment alone on a plain background, and a head-to-knee photo, one person, facing the camera |
 | `VTO_FAILED` with a `provider_code` | the photo doesn't suit the try-on: unreadable pose, several people, framing | the displayed message says what to redo |
+| `error_src_face_too_small` although the crop met the 60% rule | the provider measures differently, or its own detector finds a smaller face — sunglasses and steep angles both defeat frontal detection | the crop now targets 80% on **both** axes and retries once at 92%. To settle it empirically: `python scripts/probe_skin.py your-photo.jpg` |
 | repeated `502 ANALYSIS_FAILED` | auth rejected, or Skin AI endpoints/actions not enabled | read the `skin_provider_failed` log: it carries `error_code`, `reason` and the provider response |
 | `404` on a task | wrong endpoint path | v2: `/s2s/v2.0/task/cloth` — **singular** |
 | "We can't reach Mirror Ops" | API down, or origin missing from `CORS_ORIGINS` | start the API, add `http://localhost:3000` |

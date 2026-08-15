@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import sys
 from pathlib import Path
@@ -29,6 +30,8 @@ for candidate in (ROOT / "apps" / "api", ROOT):
     if (candidate / "app").is_dir():
         sys.path.insert(0, str(candidate))
         break
+
+from PIL import Image  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
 from app.integrations.youcam.apparel_vto import ApparelVTOService  # noqa: E402
@@ -100,19 +103,47 @@ async def main() -> int:
           f"{len(garment.image_bytes) // 1024} Ko")
     print(f"photo       : {photo.name}, {photo.stat().st_size // 1024} Ko\n")
 
+    # La sonde doit envoyer EXACTEMENT ce que l'application envoie.
+    #
+    # Elle transmettait les octets bruts du fichier : ni redressement EXIF, ni
+    # bornage, ni normalisation de ratio. Elle testait donc un chemin que le
+    # produit n'emprunte jamais — et son verdict ne prouvait rien sur lui.
+    from app.services.image_validation import validate_image
+    from app.services.vto_service import _bounded
+
+    validated = validate_image(photo.read_bytes(), "image/jpeg")
+    prepared = _bounded(validated.data)
+
+    with Image.open(io.BytesIO(prepared)) as ready:
+        print(f"envoye      : {ready.width}x{ready.height}  ratio 1:{ready.height / ready.width:.2f}"
+              f"  ({len(prepared) // 1024} Ko)")
+    if len(prepared) != len(validated.data):
+        print("              (photo preparee : orientation, bornage ou cadre)")
+    print()
+
     service = ApparelVTOService()
     try:
-        result = await service.generate(photo.read_bytes(), garment)
+        result = await service.generate(prepared, garment)
     except YouCamError as exc:
+        code = getattr(exc, "provider_code", None) or ""
         print("ECHEC")
         print(f"  classe        : {type(exc).__name__}")
-        print(f"  code provider : {exc.provider_code or '—'}")
+        print(f"  code provider : {code or '—'}")
         print(f"  detail        : {exc.detail or '—'}")
-        print("\nSi le code est `error_editing_failed`, l'image de vetement est presque")
-        print("toujours en cause : un aplat n'est pas un vetement. Verifiez avec")
-        print("  python scripts/check_garments.py")
-        print("puis importez de vraies photos avec")
-        print("  python scripts/import_garments.py <dossier>")
+
+        if code == "error_editing_failed":
+            print("\n`error_editing_failed` : le rendu n'a pas pu etre produit.")
+            print("Le vetement et la photo ont ete acceptes, c'est la composition")
+            print("qui echoue. Causes possibles, par frequence observee :")
+            print("  1. le vetement de reference n'est pas une photo produit —")
+            print("     aplat genere, ou quelqu'un qui le porte :")
+            print("       python scripts/check_garments.py")
+            print("  2. la photo source ne montre pas un corps entier exploitable :")
+            print("     de face, une seule personne, bras le long du corps")
+            print("  3. la piece et la categorie ne concordent pas — une veste")
+            print("     annoncee `jacket` mais qui est un manteau long, par exemple")
+            print("\nLe test qui tranche : la meme photo avec une piece differente.")
+            print("  python scripts/probe_vto.py <photo> jacket_02")
         return 1
     finally:
         from app.integrations.youcam.client import close_youcam_client

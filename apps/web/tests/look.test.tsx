@@ -35,17 +35,55 @@ describe("écran « your look »", () => {
     setOutfit.mockReset();
   });
 
+  test("ne présélectionne aucune pièce", async () => {
+    render(<LookPage />);
+    await screen.findByRole("button", { name: "Continue" });
+
+    // Des défauts mixtes — haut/bas/chaussures cochés, veste non cochée —
+    // apprenaient que les défauts sont corrects, si bien qu'une absence jamais
+    // affirmée partait au moteur : « Add a jacket » à quelqu'un qui en porte une.
+    for (const label of ["Jacket", "Top", "Bottom", "Shoes", "Accessories"]) {
+      expect(screen.getByRole("button", { name: label }).getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    }
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
   test("écrit en toutes lettres ce qui sera envoyé au moteur", async () => {
     render(<LookPage />);
-    expect(await screen.findByText(/Mirror Ops will read this as/)).toBeDefined();
+    fireEvent.click(await screen.findByRole("button", { name: "Top" }));
+
+    expect(screen.getByText(/Mirror Ops will read this as/)).toBeDefined();
     // Ce qui est déclaré absent doit être nommé, pas seulement omis.
-    expect(screen.getByText(/no jacket and accessories/)).toBeDefined();
+    expect(screen.getByText(/no jacket, bottom, shoes and accessories/)).toBeDefined();
+  });
+
+  test("prévient explicitement du risque d'une absence non voulue", async () => {
+    render(<LookPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Top" }));
+
+    // C'est cette absence qui produit « Add a jacket » : elle doit être
+    // impossible à manquer, pas seulement mentionnée.
+    expect(screen.getByText(/may tell you to add/)).toBeDefined();
+
+    for (const label of ["Jacket", "Bottom", "Shoes", "Accessories"]) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    }
+    expect(screen.queryByText(/may tell you to add/)).toBeNull();
   });
 
   test("cocher une pièce la retire de la liste des absentes", async () => {
     render(<LookPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Jacket" }));
+    for (const label of ["Top", "Bottom", "Shoes"]) {
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+    }
+    expect(screen.getByText(/no jacket and accessories/)).toBeDefined();
 
+    fireEvent.click(screen.getByRole("button", { name: "Jacket" }));
     expect(screen.queryByText(/no jacket and accessories/)).toBeNull();
     expect(screen.getByText(/no accessories/)).toBeDefined();
   });
@@ -53,6 +91,7 @@ describe("écran « your look »", () => {
   test("transmet la présence ET l'absence de chaque pièce", async () => {
     render(<LookPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Jacket" }));
+    fireEvent.click(screen.getByRole("button", { name: "Casual" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(setOutfit).toHaveBeenCalledTimes(1);
@@ -66,12 +105,7 @@ describe("écran « your look »", () => {
     render(<LookPage />);
     await screen.findByRole("button", { name: "Continue" });
 
-    // On décoche les trois pièces cochées par défaut.
-    for (const label of ["Top", "Bottom", "Shoes"]) {
-      fireEvent.click(screen.getByRole("button", { name: label }));
-    }
-
-    expect(screen.getByText(/Pick at least one piece/)).toBeDefined();
+    expect(screen.getByText(/Tap each piece you have on/)).toBeDefined();
     expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", true);
 
     // Et rien n'est envoyé au moteur.
@@ -80,7 +114,10 @@ describe("écran « your look »", () => {
   });
   test("le niveau d'habillement part avec la tenue", async () => {
     render(<LookPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Dressed up" }));
+    for (const label of ["Top", "Shoes"]) {
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Dressed up" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     const outfit = setOutfit.mock.calls[0][0] as Record<
@@ -94,13 +131,24 @@ describe("écran « your look »", () => {
     expect(outfit.jacket.formality).toBeUndefined();
   });
 
-  test("la question reste facultative", async () => {
+  test("la question d'habillement est obligatoire", async () => {
     render(<LookPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Top" }));
     await screen.findByText(/How dressed up is it/);
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    const outfit = setOutfit.mock.calls[0][0] as Record<string, { formality?: number }>;
-    // Rien n'est supposé : le moteur décidera avec moins de certitude.
-    expect(outfit.top.formality).toBeUndefined();
+    // Sans elle, tout look est lu comme « moyennement habillé » : un entretien
+    // et un voyage rendent alors le même verdict à deux points près, et la
+    // thèse du produit devient invisible.
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByText(/judge the same look differently/)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Casual" }));
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty(
+      "disabled",
+      false,
+    );
   });
 });

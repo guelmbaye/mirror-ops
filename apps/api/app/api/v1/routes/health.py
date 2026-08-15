@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.integrations.youcam import crypto_available
+from app.services.face_crop import opencv_status
 from app.services.garment_audit import placeholder_ids
 from app.services.garment_service import list_garments
 from app.schemas.common import DependencyHealthResponse, HealthResponse
@@ -46,6 +47,11 @@ async def dependencies(db: DbSession) -> DependencyHealthResponse:
 
     # Un catalogue de substitution est exploitable par la composition locale,
     # jamais par un vrai try-on : la tache echoue alors en `error_editing_failed`.
+    # Sans detection de visage : aucun signal peau, et le cadrage retombe sur
+    # « inconnu ». Le produit fonctionne, mais l'integration Skin AI est morte.
+    face_ready, face_reason = opencv_status()
+    face_state = "ok" if face_ready else "unavailable"
+
     missing_real = placeholder_ids(list_garments())
     garments_state = "placeholder" if missing_real else "ok"
 
@@ -67,5 +73,6 @@ async def dependencies(db: DbSession) -> DependencyHealthResponse:
         storage=storage,
         youcam=youcam,
         garments=garments_state,
+        face_detection=face_state,
         youcam_mode=settings.YOUCAM_MODE,
     )

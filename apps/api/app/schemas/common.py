@@ -46,3 +46,4 @@ class DependencyHealthResponse(APIModel):
     youcam: str
     youcam_mode: str
     garments: str = "ok"
+    face_detection: str = "ok"

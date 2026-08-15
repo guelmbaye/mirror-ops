@@ -31,12 +31,33 @@ export default function LookPage() {
   const [shooting, setShooting] = useState(false);
   // Ce que la personne porte. Par defaut : haut, bas, chaussures — la tenue la
   // plus courante. Veste et accessoires se declarent, ils ne se supposent pas.
-  const [worn, setWorn] = useState<Set<OutfitElement>>(
-    () => new Set<OutfitElement>(["top", "bottom", "shoes"]),
-  );
-  // Sans cette réponse, le moteur applique le même a priori à tout le monde et
-  // rend le même verdict pour un mariage et pour un voyage.
+  // AUCUNE valeur par defaut.
+  //
+  // Pre-cocher haut/bas/chaussures et laisser veste/accessoires decoches
+  // apprenait a l'utilisateur que les defauts sont corrects — il n'inspectait
+  // donc pas les cases vides, et une absence qu'il n'avait jamais affirmee
+  // partait au moteur. Resultat : « Add a jacket » a quelqu'un qui en porte une.
+  //
+  // Chaque piece exige desormais un geste. Une case vide signifie « j'ai
+  // parcouru la liste et je ne porte pas ca », ce qui est une affirmation
+  // reelle.
+  const [worn, setWorn] = useState<Set<OutfitElement>>(() => new Set<OutfitElement>());
+  // Sans cette reponse, tout look est lu comme « moyennement habille » : un
+  // entretien et un voyage rendent alors le meme verdict a deux points pres, et
+  // la these du produit devient invisible. Elle a d'abord ete facultative — la
+  // demonstration echouait silencieusement. Elle est desormais requise.
   const [dress, setDress] = useState<number | null>(null);
+  // La piece qui detonne, si l'utilisateur en signale une.
+  //
+  // Sans elle, chaque piece porte le meme niveau d'habillement et aucune ne se
+  // detache : le verdict ne peut alors JAMAIS nommer de coupable, et se limite
+  // a « as a whole, this look sits below… ». La phrase la plus utile du
+  // produit — « the shoes reduce the level of formality » — etait donc
+  // inatteignable depuis l'interface.
+  //
+  // Le moteur ne se contente pas de repeter cette declaration : il decide si
+  // cet ecart compte POUR CE MOMENT. Des baskets ne penalisent pas un voyage.
+  const [oddOne, setOddOne] = useState<OutfitElement | null>(null);
   // Décidé après le montage : `window` n'existe pas au rendu serveur.
   const [hasCamera, setHasCamera] = useState(false);
 
@@ -99,6 +120,8 @@ export default function LookPage() {
       else next.add(element);
       return next;
     });
+    // Une piece qu'on ne porte plus ne peut pas etre celle qui detonne.
+    setOddOne((current) => (current === element ? null : current));
   }
 
   function goToAnalysis() {
@@ -106,10 +129,14 @@ export default function LookPage() {
     // MIRROR OPS de recommander de changer une piece qui n'est pas la.
     const outfit: OutfitIn = {};
     for (const element of OUTFIT_ELEMENTS) {
-      outfit[element] =
-        worn.has(element) && dress !== null
-          ? { present: true, formality: dress, structure: dress }
-          : { present: worn.has(element) };
+      if (!worn.has(element) || dress === null) {
+        outfit[element] = { present: worn.has(element) };
+        continue;
+      }
+      // La piece signalee descend nettement sous les autres : c'est cet écart
+      // qui permet au verdict de la nommer.
+      const level = element === oddOne ? Math.max(0.1, dress - 0.4) : dress;
+      outfit[element] = { present: true, formality: level, structure: level };
     }
     setOutfit(outfit);
     router.push("/analyzing");
@@ -165,7 +192,9 @@ export default function LookPage() {
 
         {preview ? (
           <fieldset className="wearing">
-            <legend className="wearing__legend">What are you wearing?</legend>
+            <legend className="wearing__legend">
+              Tap everything you&apos;re wearing
+            </legend>
             <div className="wearing__chips">
               {OUTFIT_ELEMENTS.map((element) => (
                 <button
@@ -201,10 +230,45 @@ export default function LookPage() {
                   ))}
                 </div>
                 {dress === null ? (
-                  <p className="fine" style={{ marginTop: 8 }}>
-                    Skip it if you like — Mirror Ops will decide anyway, with less certainty.
+                  <p className="wearing__warning" style={{ marginTop: 8 }}>
+                    Pick one. It&apos;s what lets Mirror Ops judge the same look
+                    differently for an interview and for a flight.
                   </p>
-                ) : null}
+                ) : (
+                  <div style={{ marginTop: 16 }}>
+                    <p className="wearing__legend" style={{ margin: "0 0 4px" }}>
+                      Anything more casual than the rest?{" "}
+                      <span style={{ textTransform: "none", letterSpacing: 0 }}>
+                        (optional)
+                      </span>
+                    </p>
+                    <p className="fine" style={{ margin: "0 0 10px" }}>
+                      Same pieces, different question: which one sits below the rest.
+                    </p>
+                    {/* Rendu volontairement distinct de la premiere liste :
+                        les memes mots, la meme grille et le meme style faisaient
+                        lire les deux questions comme un doublon. */}
+                    <div className="wearing__chips">
+                      {[...worn].map((element) => (
+                        <button
+                          key={element}
+                          type="button"
+                          className="chip chip--sub"
+                          aria-pressed={oddOne === element}
+                          onClick={() => setOddOne(oddOne === element ? null : element)}
+                        >
+                          {oddOne === element ? "↓ " : ""}
+                          {ELEMENT_LABELS[element] ?? element}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="fine" style={{ marginTop: 8 }}>
+                      {oddOne
+                        ? `Mirror Ops will weigh whether the ${(ELEMENT_LABELS[oddOne] ?? oddOne).toLowerCase()} actually matters for this moment — it may not.`
+                        : "Sneakers with a suit, say. Skip it if everything is on the same level."}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -212,21 +276,33 @@ export default function LookPage() {
               // Sans aucune piece declaree, le moteur n'a rien a juger et
               // refuserait plus loin. Autant le dire ici, pas trois ecrans plus tard.
               <p className="wearing__summary wearing__summary--empty">
-                Pick at least one piece — Mirror Ops can&apos;t judge a look it knows nothing
-                about.
+                Tap each piece you have on. Mirror Ops can&apos;t judge a look it knows
+                nothing about — and it won&apos;t guess.
               </p>
             ) : (
-            <p className="wearing__summary">
-              Mirror Ops will read this as:{" "}
-              <strong>{worn.size > 0 ? listOf([...worn]) : "nothing declared"}</strong>
-              {missing.length > 0 ? (
-                <>
-                  {" "}— and <strong className="wearing__missing">no {listOf(missing)}</strong>.
-                </>
-              ) : (
-                "."
-              )}
-            </p>
+              <>
+                <p className="wearing__summary">
+                  Mirror Ops will read this as: <strong>{listOf([...worn])}</strong>
+                  {missing.length > 0 ? (
+                    <>
+                      , and{" "}
+                      <strong className="wearing__missing">no {listOf(missing)}</strong>.
+                    </>
+                  ) : (
+                    "."
+                  )}
+                </p>
+
+                {/* L'absence est l'affirmation risquee : c'est elle qui produit
+                    « Add a jacket ». On la rend impossible a manquer. */}
+                {missing.length > 0 ? (
+                  <p className="wearing__warning">
+                    If you <em>are</em> wearing {listOf(missing)}, tap{" "}
+                    {missing.length > 1 ? "them" : "it"} above — otherwise Mirror Ops
+                    may tell you to add {missing.length > 1 ? "one of them" : "one"}.
+                  </p>
+                ) : null}
+              </>
             )}
             <p className="fine" style={{ marginTop: 8 }}>
               Mirror Ops won&apos;t suggest changing something you aren&apos;t wearing — and it
@@ -240,7 +316,7 @@ export default function LookPage() {
             <Action variant="ghost" onClick={retake}>
               Retake
             </Action>
-            <Action onClick={goToAnalysis} disabled={worn.size === 0}>
+            <Action onClick={goToAnalysis} disabled={worn.size === 0 || dress === null}>
               Continue
             </Action>
           </div>

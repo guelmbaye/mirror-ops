@@ -8,9 +8,12 @@ Aucun LLM requis.
 from __future__ import annotations
 
 from app.engines.one_change.scorer import contribution_breakdown
+from app.engines.one_change.tables import CHANGE_ACTIONS, OCCASION_TARGET_FORMALITY
 from app.engines.one_change.types import DecisionContext, Explanation, ScoredCandidate
 from app.models.enums import (
     ACTION_ELEMENT,
+    OutfitElement,
+    ELEMENT_LABEL,
     MATERIALISED_ELEMENT,
     ACTION_LABEL,
     ACTION_LABEL_ADD,
@@ -43,7 +46,14 @@ ELEMENT_NOUN: dict[ChangeAction, str] = {
     ChangeAction.CHANGE_SHOES: "shoes",
     ChangeAction.CHANGE_ACCESSORY: "accessory",
     ChangeAction.CHANGE_COLOR: "colour balance",
+    # « Removing the accessory offers the highest expected improvement… »
+    ChangeAction.REMOVE_ACCESSORY: "accessory you're wearing",
 }
+
+#: Completude : une action evaluee sans nom fait planter l'explication.
+_MISSING_NOUNS = [a for a in CHANGE_ACTIONS if a not in ELEMENT_NOUN]
+if _MISSING_NOUNS:  # pragma: no cover - defaut de configuration
+    raise RuntimeError(f"ELEMENT_NOUN is missing: {[str(a) for a in _MISSING_NOUNS]}")
 
 
 def dominant_factors(winner: ScoredCandidate, limit: int = 2) -> list[str]:
@@ -63,10 +73,68 @@ def keep_list(context: DecisionContext, action: ChangeAction) -> list[str]:
     return kept
 
 
+#: Ecart minimal a la cible pour parler de sens. En deca, « changez » suffit :
+#: le probleme n'est pas le niveau, c'est la piece elle-meme.
+DIRECTION_MARGIN = 0.12
+
+
+def _direction(context: DecisionContext, action: ChangeAction) -> str | None:
+    """Dans quel SENS changer la piece.
+
+    « Change the jacket » disait exactement la meme chose a quelqu'un
+    sous-habille pour un entretien et a quelqu'un sur-habille pour un voyage.
+    Deux situations opposees, une seule phrase : l'utilisateur ne pouvait pas
+    savoir s'il fallait monter ou descendre en formalite, et trois reglages
+    differents rendaient un ecran identique.
+    """
+    element = MATERIALISED_ELEMENT[action]
+    if element is None or element not in context.appearance.present_elements:
+        return None
+
+    target = OCCASION_TARGET_FORMALITY.get(context.moment.occasion)
+    current = context.appearance.element_formality.get(element)
+    if target is None or current is None:
+        return None
+
+    noun = ELEMENT_LABEL.get(element, str(element))
+    plural = element in (OutfitElement.SHOES, OutfitElement.ACCESSORIES)
+    verb = "are" if plural else "is"
+
+    if current < target - DIRECTION_MARGIN:
+        return (
+            f"The {noun} {verb} more casual than this moment calls for. "
+            "Keep the rest exactly as it is."
+        )
+    if current > target + DIRECTION_MARGIN:
+        return (
+            f"The {noun} {verb} dressier than this moment calls for. "
+            "Keep the rest exactly as it is."
+        )
+    return None
+
+
 def is_addition(context: DecisionContext, action: ChangeAction) -> bool:
     """La piece visee manque-t-elle ? Alors on l'ajoute, on ne la change pas."""
     element = ACTION_ELEMENT[action]
     return element is not None and element not in context.appearance.present_elements
+
+
+def formality_shift(context: DecisionContext, action: ChangeAction) -> str | None:
+    """`sharper`, `easier`, ou None quand le niveau n'est pas en cause."""
+    element = MATERIALISED_ELEMENT[action]
+    if element is None or element not in context.appearance.present_elements:
+        return None
+
+    target = OCCASION_TARGET_FORMALITY.get(context.moment.occasion)
+    current = context.appearance.element_formality.get(element)
+    if target is None or current is None:
+        return None
+
+    if current < target - DIRECTION_MARGIN:
+        return "sharper"
+    if current > target + DIRECTION_MARGIN:
+        return "easier"
+    return None
 
 
 def label_for(context: DecisionContext, action: ChangeAction) -> str:
@@ -77,7 +145,19 @@ def label_for(context: DecisionContext, action: ChangeAction) -> str:
     """
     if is_addition(context, action):
         return ACTION_LABEL_ADD.get(action, ACTION_LABEL[action])
-    return ACTION_LABEL[action]
+
+    base = ACTION_LABEL[action]
+
+    # Le SENS appartient au titre, pas a une ligne secondaire.
+    #
+    # « Change the jacket » disait exactement la meme chose a quelqu'un
+    # sous-habille pour un entretien et a quelqu'un sur-habille pour un voyage.
+    # Trois reglages d'habillement differents rendaient un titre identique, et
+    # le produit paraissait insensible a ce qu'on lui disait.
+    shift = formality_shift(context, action)
+    if shift and action is not ChangeAction.CHANGE_COLOR:
+        return f"{base} for something {shift}"
+    return base
 
 
 def build_explanation(
@@ -101,7 +181,7 @@ def build_explanation(
         f"expected improvement for {goal_phrase} — {primary}"
         + (f", and {secondary}." if secondary else ".")
     )
-    how = "Keep the rest of your look exactly as it is."
+    how = _direction(context, winner.action) or "Keep the rest of your look exactly as it is."
     reason = (
         f"{label_for(context, winner.action)} because it offers the highest expected improvement "
         f"for {goal_phrase} while keeping the rest of your look unchanged."

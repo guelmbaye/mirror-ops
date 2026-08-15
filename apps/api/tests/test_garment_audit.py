@@ -171,3 +171,55 @@ def test_extra_catalog_entries_come_from_the_user_directory(tmp_path, monkeypatc
         assert all(e["id"] != "jacket_99" for e in shipped["garments"])
     finally:
         garment_service.load_catalog.cache_clear()
+
+
+def test_a_garment_worn_by_someone_is_flagged(tmp_path, monkeypatch):
+    """L'essayage attend une piece SEULE.
+
+    Une photo de quelqu'un portant le vetement demande au modele de deviner ou
+    s'arrete la piece et ou commence la personne. Cause probable d'un
+    `error_editing_failed` alors que l'image est nette et bien definie — le
+    catalogue passait alors tous les controles precedents.
+    """
+    from app.services import garment_audit
+
+    monkeypatch.setattr(garment_audit, "detect_largest_face", None, raising=False)
+    monkeypatch.setattr(
+        "app.services.face_crop.detect_largest_face", lambda _: (10, 10, 200, 200)
+    )
+
+    photo = tmp_path / "worn.jpg"
+    photo.write_bytes(b"not-really-an-image")
+    assert garment_audit.shows_a_person(photo) is True
+
+    monkeypatch.setattr("app.services.face_crop.detect_largest_face", lambda _: None)
+    assert garment_audit.shows_a_person(photo) is False
+
+
+def test_usability_requires_both_checks():
+    from app.services.garment_audit import GarmentAudit
+
+    from pathlib import Path
+
+    flat = GarmentAudit("a", Path("a.png"), colours=14, shows_a_person=False)
+    worn = GarmentAudit("b", Path("b.png"), colours=9000, shows_a_person=True)
+    good = GarmentAudit("c", Path("c.png"), colours=9000, shows_a_person=False)
+
+    assert flat.is_usable is False
+    assert worn.is_usable is False
+    assert good.is_usable is True
+
+
+def test_the_summary_never_contradicts_the_listing():
+    """Le script annoncait « 2 visuels montrent quelqu'un » puis « tous
+    exploitables ». Un resume qui contredit sa propre liste ne sert a rien."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+    import check_garments
+
+    source = Path(check_garments.__file__).read_text(encoding="utf-8")
+    # Le verdict final doit se fonder sur l'utilisabilite, pas sur le seul aplat.
+    verdict = source.split("tous exploitables")[0]
+    assert "unusable" in verdict, "the final verdict still ignores the worn check"

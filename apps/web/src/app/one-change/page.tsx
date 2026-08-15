@@ -137,6 +137,15 @@ export default function OneChangePage() {
   const hold = recommendation.action === "NO_CHANGE";
   const photo = detail.analysis?.image_url ?? null;
 
+  // Les pieces declarees portees mais hors du cadre : le moteur les a ecartees.
+  const visible = detail.analysis?.framing?.visible_elements ?? null;
+  const hidden =
+    visible === null
+      ? []
+      : ["jacket", "top", "bottom", "shoes", "accessories"].filter(
+          (element) => !visible.includes(element),
+        );
+
   return (
     <Stage step="/one-change" wide back="/look">
       <div className="split">
@@ -153,6 +162,16 @@ export default function OneChangePage() {
 
         <div className="enter enter--1" style={{ order: 1 }}>
           <Verdict recommendation={recommendation} />
+
+          {/* Le produit ne decide que sur ce qu'il peut montrer. Le dire evite
+              que l'utilisateur croie a un oubli. */}
+          {hidden.length > 0 ? (
+            <p className="path-hint" style={{ marginTop: 12 }}>
+              This photo shows {detail.analysis?.framing?.label}, so Mirror Ops left{" "}
+              {hidden.join(" and ")} out of the decision — it couldn&apos;t show you
+              the difference. Retake full-length to include {hidden.length > 1 ? "them" : "it"}.
+            </p>
+          ) : null}
 
           <div className="stage__foot">
             {error ? (

@@ -14,12 +14,21 @@ from app.core.config import Settings
 
 
 def test_the_api_reads_exactly_one_env_file():
-    """Une seule source de verite : apps/api/.env.
+    """Une seule source de verite : apps/api/.env, par chemin absolu.
 
     Deux fichiers alimentant le meme processus creaient un piege — le dernier
-    declare gagne, et le .env racine remettait YOUCAM_MODE a `mock`.
+    declare gagne, et le .env racine remettait YOUCAM_MODE a `mock`. Un chemin
+    relatif en creait un second : le fichier lu dependait du repertoire
+    courant, si bien qu'un script lance depuis la racine n'avait pas de cle.
     """
-    assert Settings.model_config["env_file"] == ".env"
+    from pathlib import Path
+
+    configured = Settings.model_config["env_file"]
+    assert isinstance(configured, str)
+    path = Path(configured)
+    assert path.is_absolute(), f"relative env_file resolves against the CWD: {configured}"
+    assert path.name == ".env"
+    assert path.parent.name == "api"
 
 
 def test_the_app_env_file_is_honoured(tmp_path, monkeypatch):
@@ -106,14 +115,56 @@ def test_live_mode_selects_the_real_providers(monkeypatch):
     provider.reset_providers()
 
 
-def test_the_root_env_file_cannot_override_the_app_one(tmp_path, monkeypatch):
-    """Scenario exact du bug : racine en `mock`, application en `live`."""
+def test_a_stray_env_file_nearby_is_ignored(tmp_path, monkeypatch):
+    """Scenario exact du bug : un `.env` dans le repertoire courant.
+
+    Avec un chemin relatif, se placer dans un dossier contenant un `.env`
+    suffisait a changer la configuration de l'API. Le fichier de l'application
+    est desormais lu par chemin absolu : ce qui traine ailleurs n'a plus
+    d'effet.
+    """
     monkeypatch.delenv("YOUCAM_MODE", raising=False)
     monkeypatch.chdir(tmp_path)
-
     (tmp_path / ".env").write_text("YOUCAM_MODE=live\n", encoding="utf-8")
-    root = tmp_path / "root"
-    root.mkdir()
-    (root / ".env").write_text("YOUCAM_MODE=mock\n", encoding="utf-8")
 
-    assert Settings().YOUCAM_MODE == "live"
+    from pathlib import Path
+
+    real = Path(Settings.model_config["env_file"])
+    expected = "live" if "YOUCAM_MODE=live" in real.read_text(encoding="utf-8") else "mock"
+    assert Settings().YOUCAM_MODE == expected
+
+
+def test_the_env_file_is_found_whatever_the_working_directory(tmp_path, monkeypatch):
+    """`env_file=".env"` etait resolu depuis le repertoire courant.
+
+    L'API lancee depuis apps/api lisait la bonne configuration ; un script lance
+    depuis la racine du depot lisait celle de docker-compose, sans cle YouCam.
+    La sonde annoncait alors « mode : live » puis echouait sur
+    « Missing YOUCAM_API_KEY », et le diagnostic accusait la photo.
+    """
+    from pathlib import Path
+
+    from app.core.config import Settings
+
+    configured = Path(Settings.model_config["env_file"])
+    assert configured.is_absolute(), configured
+    assert configured.parent.name == "api"
+
+    monkeypatch.chdir(tmp_path)
+    from_elsewhere = Settings()
+    monkeypatch.chdir(configured.parent)
+    from_home = Settings()
+
+    assert from_elsewhere.YOUCAM_MODE == from_home.YOUCAM_MODE
+    assert from_elsewhere.DATABASE_URL == from_home.DATABASE_URL
+
+
+def test_process_environment_still_wins(monkeypatch):
+    """Docker passe la configuration par variables : elles priment sur le fichier."""
+    from app.core.config import Settings
+
+    monkeypatch.setenv("YOUCAM_MODE", "live")
+    monkeypatch.setenv("YOUCAM_API_KEY", "from-environment")
+    settings = Settings()
+    assert settings.YOUCAM_MODE == "live"
+    assert settings.YOUCAM_API_KEY == "from-environment"

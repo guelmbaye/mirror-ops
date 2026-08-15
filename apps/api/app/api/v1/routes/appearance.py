@@ -47,11 +47,22 @@ async def analyze(
         raise AppError(ErrorCode.IMAGE_TOO_LARGE)
 
     scope = "appearance.analyze"
-    # La cle doit couvrir TOUTES les entrees, pas seulement la photo : revenir
-    # en arriere pour corriger sa tenue puis relancer renvoyait sinon l'analyse
-    # precedente, et la correction restait sans effet.
+    # La cle doit couvrir TOUT ce dont le resultat depend.
+    #
+    # Photo et tenue ne suffisent pas : l'analyse evalue l'adequation de chaque
+    # piece AU MOMENT (`item_suitability(item, moment)`). Sans le moment dans la
+    # cle, revenir en arriere pour choisir une autre occasion renvoyait
+    # l'analyse precedente — figee sur l'occasion initiale — et la decision
+    # repetait la meme recommandation quel que soit le nouveau moment.
+    #
+    # C'est la deuxieme fois que cette regle est enfreinte dans ce fichier. Elle
+    # merite d'etre enoncee : une memoisation doit etre indexee sur la totalite
+    # de ses entrees, sinon elle transforme une correction en illusion.
+    moment_key = f"{moment.occasion}:{moment.goal}:{moment.time_available}"
     key = idempotency_key or (
-        f"{session.id}:{hash_bytes(raw)[:32]}:{hash_bytes((outfit or '').encode())[:16]}"
+        f"{session.id}:{hash_bytes(raw)[:32]}"
+        f":{hash_bytes((outfit or '').encode())[:16]}"
+        f":{hash_bytes(moment_key.encode())[:12]}"
     )
     cached = await idempotency.get_cached_response(db, scope, key)
     if cached:

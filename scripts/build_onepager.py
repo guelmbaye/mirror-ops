@@ -87,10 +87,13 @@ def rule() -> Table:
 def matrix(s: dict) -> Table:
     """The measurement that proves the thesis: same look, different verdicts."""
     header = ["", "wedding", "interview", "dinner", "travel"]
+    # Produit par exactement ce que l'interface envoie. Regenerer apres toute
+    # modification des tables du moteur : un chiffre verifiable en une seconde
+    # est le pire endroit ou se tromper.
     rows = [
-        ["casual", ("MISMATCH", 51), ("MISMATCH", 50), ("ALMOST", 63), ("FIT", 73)],
-        ["in between", ("ALMOST", 67), ("ALMOST", 67), ("FIT", 77), ("ALMOST", 70)],
-        ["dressed up", ("FIT", 84), ("FIT", 85), ("CLOSE", 72), ("ALMOST", 63)],
+        ["casual", ("MISMATCH", 47), ("MISMATCH", 46), ("ALMOST", 60), ("ALMOST", 69)],
+        ["in between", ("ALMOST", 64), ("ALMOST", 64), ("FIT", 74), ("ALMOST", 67)],
+        ["dressed up", ("FIT", 81), ("FIT", 81), ("ALMOST", 68), ("ALMOST", 60)],
     ]
 
     data = [[Paragraph(f"<b>{h}</b>" if h else "", s["cell"]) for h in header]]
@@ -161,7 +164,7 @@ def page_one(s: dict) -> list:
         Spacer(1, 4),
         Paragraph(
             "Contextual fit score 0–100, computed before any change is proposed. "
-            "A casual look scores 73 for travel and 51 for a wedding.",
+            "A casual look scores 69 for travel and 47 for a wedding.",
             s["muted"],
         ),
         Paragraph("THE JOURNEY — UNDER 90 SECONDS", s["h"]),

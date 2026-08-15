@@ -94,6 +94,16 @@ class AppearanceSignals:
     image_quality: float
     skin: SkinObservations = field(default_factory=SkinObservations)
     skin_signal_used: bool = False
+    #: Ce que la PHOTO montre reellement. Le produit promet de decider,
+    #: d'expliquer et de PROUVER : recommander de changer une piece absente du
+    #: cadre produit un before/after ou rien ne bouge, et casse la promesse au
+    #: moment ou elle compte.
+    #: `None` = cadrage indetermine, aucune restriction appliquee.
+    visible_elements: set[OutfitElement] | None = None
+    #: Formalite declaree par piece. Sert a dire dans quel SENS changer :
+    #: sans elle, « change the jacket » disait la meme chose a quelqu'un
+    #: sous-habille et a quelqu'un sur-habille.
+    element_formality: dict[OutfitElement, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +147,9 @@ class ScoredCandidate:
     features: CandidateFeatures
     simplicity: float
     projected_dimensions: dict[str, float]
+    #: Ce levier corrige-t-il la piece nettement en retrait du reste ?
+    #: Sert au departage : reparer l'ecart prime sur le moindre effort.
+    repairs_anomaly: bool = False
 
     def as_dict(self) -> dict:
         return {

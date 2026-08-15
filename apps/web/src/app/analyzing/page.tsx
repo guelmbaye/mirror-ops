@@ -12,7 +12,7 @@ import {
   evaluateOneChange,
   getSessionDetail,
 } from "@/lib/api";
-import { getOutfit, getPhoto } from "@/lib/photo";
+import { getMoment, getOutfit, getPhoto } from "@/lib/photo";
 import { fingerprint, readSessionId, stepKey } from "@/lib/session";
 
 const STEPS = [
@@ -67,6 +67,12 @@ export default function AnalyzingPage() {
     // GET : aucune unité API n'est consommée.
     let tries = 0;
     const watchdog = window.setInterval(() => {
+      // Une orchestration qui a rendu son verdict — succes ou echec — n'a plus
+      // rien a recuperer.
+      if (settled.current || cancelled.current) {
+        window.clearInterval(watchdog);
+        return;
+      }
       tries += 1;
       void recover(tries >= WATCHDOG_TRIES);
     }, WATCHDOG_MS);
@@ -102,11 +108,13 @@ export default function AnalyzingPage() {
       try {
         setReached(1);
         const outfit = getOutfit() ?? undefined;
-        // La cle suit les entrees : meme photo + meme tenue = meme cle (le
-        // double-clic reste protege) ; la moindre correction en produit une
-        // nouvelle, et l'analyse est bien refaite.
+        // La cle couvre TOUT ce dont l'analyse depend : la photo, la tenue et
+        // le moment. Le moment compte parce que l'analyse evalue l'adequation
+        // de chaque piece a CE moment — l'omettre figeait le resultat sur la
+        // premiere occasion choisie.
         const inputs = fingerprint(
           JSON.stringify(outfit ?? {}),
+          getMoment() ?? "",
           photo.file.size,
           photo.file.lastModified,
         );
@@ -133,8 +141,15 @@ export default function AnalyzingPage() {
             router.replace("/");
             return;
           }
+          // Le filet de sécurité existe pour une orchestration BLOQUÉE, pas
+          // pour une qui a échoué franchement. Sans cette ligne, un refus de
+          // photo laissait le watchdog interroger le serveur toutes les huit
+          // secondes, indéfiniment — observé sur deux minutes en production —
+          // pendant que l'utilisateur regardait un écran figé.
+          settled.current = true;
           setFailure(cause);
         } else {
+          settled.current = true;
           setFailure(
             new ApiError("INTERNAL_ERROR", "Something went wrong on our side.", true, 500),
           );

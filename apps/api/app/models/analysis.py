@@ -23,6 +23,8 @@ class AppearanceAnalysis(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     element_suitability: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     outfit: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     image_quality: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    #: Ce que la photo montre : cadrage estime et elements prouvables.
+    framing: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     data_confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     session = relationship("UserSession", back_populates="analyses")

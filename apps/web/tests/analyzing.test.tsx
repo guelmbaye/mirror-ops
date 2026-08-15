@@ -45,8 +45,10 @@ vi.mock("@/lib/photo", () => ({
     previewUrl: "blob:look",
   }),
   getOutfit: () => ({ jacket: { present: false }, top: { present: true } }),
+  getMoment: () => "interview|professional|<5m",
 }));
 
+import { ApiError } from "@/lib/api";
 import AnalyzingPage from "@/app/analyzing/page";
 
 /** Une réponse qui met un tour de boucle à revenir, comme un vrai appel réseau. */
@@ -170,5 +172,36 @@ describe("écran d'analyse", () => {
     // sur la même photo doivent produire deux analyses.
     expect(call.idempotencyKey).toContain("analyze:");
     expect(call.idempotencyKey).toContain("jacket");
+    // Le moment aussi : l'analyse evalue l'adequation AU moment, donc changer
+    // d'occasion doit produire une nouvelle cle.
+    expect(call.idempotencyKey).toContain("interview");
+  });
+  test("le filet de sécurité s'arrête quand l'analyse a échoué", async () => {
+    vi.useFakeTimers();
+    analyzeAppearance.mockRejectedValue(
+      new ApiError("INVALID_IMAGE", "This image is only 143 pixels wide.", true, 422),
+    );
+
+    try {
+      render(
+        <StrictMode>
+          <AnalyzingPage />
+        </StrictMode>,
+      );
+      await vi.waitFor(() => expect(analyzeAppearance).toHaveBeenCalled());
+      getSessionDetail.mockClear();
+
+      // Le watchdog interrogeait le serveur toutes les huit secondes,
+      // indéfiniment — deux minutes observées en production — pendant que
+      // l'utilisateur regardait un écran figé. Un échec franc n'est pas un
+      // blocage : il n'y a rien à récupérer.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(getSessionDetail).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

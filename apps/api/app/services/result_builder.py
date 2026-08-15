@@ -45,6 +45,7 @@ async def analysis_response(
         element_suitability=analysis.element_suitability or {},
         image_quality=ImageQualityOut(**(analysis.image_quality or {"score": 0.0})),
         data_confidence=analysis.data_confidence,
+        framing=getattr(analysis, "framing", None),
         image_url=image_url,
         created_at=analysis.created_at,
     )

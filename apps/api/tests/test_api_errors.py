@@ -215,3 +215,32 @@ async def test_malformed_outfit_json_is_rejected(client, flow):
     )
     assert response.status_code == 400
     assert_error_shape(response.json(), "INVALID_REQUEST")
+
+
+async def test_a_too_small_image_says_the_actual_size(client, flow):
+    """« We need a clearer, larger view » laissait croire a un flou.
+
+    Cas reel : un screenshot de 143 px de large envoye a la place de la photo.
+    L'utilisateur reprenait la meme image, mieux eclairee, et se faisait
+    refuser a l'identique. Le message nomme desormais la dimension et le seuil.
+    """
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (143, 474), (180, 150, 140)).save(buffer, format="PNG")
+
+    session_id = await flow.session()
+    await flow.moment(session_id)
+    response = await client.post(
+        "/api/v1/appearance/analyze",
+        data={"session_id": session_id},
+        files={"image": ("shot.png", buffer.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 422
+    message = response.json()["error"]["message"]
+    assert "143" in message, message
+    assert "320" in message, message
+    assert "screenshot" in message.lower()

@@ -8,6 +8,7 @@ Scoring weights / Thresholds / Storage / Environment".
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,7 +26,17 @@ class Settings(BaseSettings):
         #
         # Sous Docker, compose passe de vraies variables d'environnement, qui
         # priment de toute facon sur ce fichier.
-        env_file=".env",
+        # Chemin ABSOLU, ancre sur le paquet.
+        #
+        # `".env"` est resolu depuis le repertoire courant : l'API lancee depuis
+        # apps/api lisait la bonne configuration, un script lance depuis la
+        # racine lisait celle de docker-compose — sans cle YouCam. La sonde
+        # rapportait alors « Missing YOUCAM_API_KEY » tout en affichant
+        # « mode : live », et le diagnostic accusait la photo.
+        #
+        # Meme classe de defaut que les cles d'idempotence : un resultat qui
+        # depend d'ou l'on se tient est un resultat faux la moitie du temps.
+        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,

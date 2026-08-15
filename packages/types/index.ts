@@ -185,6 +185,20 @@ export interface ImageQuality {
   full_look_visible: boolean;
 }
 
+/**
+ * Ce que la photo montre — et donc ce que le produit peut prouver.
+ *
+ * Recommander de changer des chaussures absentes du cadre produirait un
+ * before/after où rien ne bouge : la promesse « see it before you act » se
+ * casserait en silence, au moment où elle compte.
+ */
+export interface Framing {
+  framing: "head" | "chest" | "waist" | "knee" | "full" | "unknown";
+  label: string;
+  face_ratio: number | null;
+  visible_elements: string[];
+}
+
 export interface AppearanceAnalysisResponse {
   analysis_id: string;
   status: string;
@@ -197,6 +211,7 @@ export interface AppearanceAnalysisResponse {
   element_suitability: Record<string, number>;
   image_quality: ImageQuality;
   data_confidence: number;
+  framing: Framing | null;
   image_url: string | null;
   created_at: string;
 }

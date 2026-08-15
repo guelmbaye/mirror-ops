@@ -69,6 +69,12 @@ browser (`sessionStorage`). Every screen re-reads `GET /sessions/{id}`: a refres
 recovers exactly the same decision — which matters as much for a demo as for
 trust.
 
+**Nothing is pre-selected on *Your look*.** The outfit chips start empty, so an
+unticked piece means the user went through the list and said no — not that they
+skipped the question. Mixed defaults previously made the product announce
+"Add a jacket" to someone wearing one: a default is a claim made on the user's
+behalf, acceptable for a preference and never for a fact about them.
+
 **The photo does not persist.** It lives in an in-memory module for the length of
 one journey. Tab reloaded before the analysis → the screen says so and asks
 again, rather than analysing something else.

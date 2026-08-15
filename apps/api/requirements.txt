@@ -9,7 +9,21 @@ httpx>=0.27.0
 cryptography>=42.0.0
 python-multipart>=0.0.9
 Pillow>=10.3.0
-# Detection de visage pour le cadrage Skin AI. Optionnelle a l'execution :
-# sans elle, le parcours continue sans signal peau.
-opencv-python-headless>=4.9.0
+# Face detection, for the Skin AI crop and for measuring photo framing.
+# Optional at runtime: without it the journey continues, with no skin signal.
+#
+# PINNED BELOW 5 ON PURPOSE. OpenCV 5.0 removed Haar cascades outright:
+# `cv2.CascadeClassifier` is gone, and `cv2.data.haarcascades` still exists but
+# is empty. An unpinned install silently picks up 5.x, imports cleanly, and then
+# fails on every call with
+#   module 'cv2' has no attribute 'CascadeClassifier'
+# Seen in production. Its replacement, FaceDetectorYN, is a better detector but
+# needs an ONNX model that is not shipped with the wheel — a network download at
+# first use, which this project deliberately avoids.
+#   Diagnose:  GET /api/v1/health/dependencies  ->  "face_detection"
+#   Repair:    pip install "opencv-python-headless>=4.10,<5"
+#
+# Also: never install the PyPI package literally named `cv2`. It is unrelated,
+# ships a module of the same name, and shadows this one.
+opencv-python-headless>=4.10,<5
 numpy>=1.26.0

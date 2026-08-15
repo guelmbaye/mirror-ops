@@ -97,6 +97,34 @@ outfit photo ──┬─→ face crop (68% of the width) ──→ Skin AI
 
 Accepted consequences:
 
+- The crop targets **72% of both width and height**, calibrated against the real
+  API rather than read off the documentation. On a full-length photo — a 289 px
+  face — ratios of 0.68, 0.80 and 0.92 were all accepted, so conformity is not
+  what decides. What decides is upscaling: a tighter crop starts below the
+  minimum short side and has to be enlarged, and `texture` is one of the four
+  metrics being measured. 0.72 keeps both axes above 60% while cutting the
+  enlargement from 1.33× to 1.20×. A single tighter retry at 92% follows a
+  rejection, and only that rejection.
+
+  Worth stating plainly: **the values move with the crop** — radiance read 0.63
+  to 0.71 across the three ratios on the same face. These are relative
+  observations, not absolute measurements, and the product presents them as
+  such.
+
+### `error_src_face_too_small` rarely means "too small"
+
+Measured across three real photos:
+
+| Photo | Face sent | Result |
+|---|---|---|
+| portrait, sunglasses | **906 px** | `error_src_face_too_small` |
+| portrait, no sunglasses | 849 px | accepted |
+| full-length | **289 px** | accepted |
+
+The rejected photo carried the *largest* face by a wide margin. The code means
+"I cannot find a usable face" far more than it means a size problem —
+sunglasses, steep angles and backlighting all produce it. The user-facing
+message says so: *"Face the camera, without sunglasses, in even light."*
 - Actions are **SD**, not HD: HD requires a short side ≥ 1080 px, which a face
   crop taken from a full-length photo rarely reaches.
 - A detected face under 140 px wide produces **no** call: enlarging it would only

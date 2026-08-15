@@ -22,6 +22,7 @@ import { ChoiceGroup } from "@/components/ChoiceGroup";
 import { Notice } from "@/components/Notice";
 import { Stage } from "@/components/Stage";
 import { ApiError, createMoment } from "@/lib/api";
+import { setMoment } from "@/lib/photo";
 import { readSessionId } from "@/lib/session";
 
 const OCCASION_OPTIONS = OCCASIONS.map((value) => ({
@@ -63,6 +64,8 @@ export default function MomentPage() {
     setError(null);
     try {
       await createMoment({ sessionId, occasion, goal, timeAvailable: time });
+      // L'analyse depend du moment : sa cle d'idempotence doit le refleter.
+      setMoment(`${occasion}|${goal}|${time}`);
       router.push("/look");
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "SESSION_EXPIRED") {

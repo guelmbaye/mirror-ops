@@ -340,3 +340,44 @@ def test_unknown_categories_fall_back_to_auto():
     assert garment_category_for("bottom") == "lower_body"
     assert garment_category_for("shoes") == "shoes"
     assert garment_category_for("accessories") == "auto"
+
+
+async def test_an_empty_result_carries_the_payload(monkeypatch):
+    """« No usable skin observation returned » etait un cul-de-sac.
+
+    L'erreur ne portait ni code provider ni indice : la sonde affichait un
+    tiret, et il devenait impossible de savoir si la tache avait echoue ou si
+    elle avait renvoye une forme que nous ne savons pas lire.
+    """
+    from app.integrations.youcam.exceptions import YouCamProviderError
+    from app.integrations.youcam.skin_ai import SkinAIService
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "YOUCAM_AUTH_MODE", "api_key", raising=False)
+    monkeypatch.setattr(settings, "YOUCAM_API_KEY", "k", raising=False)
+    monkeypatch.setattr(settings, "YOUCAM_POLL_INTERVAL_MS", 1, raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if request.method == "POST" and path.endswith("/file/skin-analysis"):
+            return httpx.Response(200, json={"data": {"files": [
+                {"file_id": "f", "requests": [{"url": "https://p.test/u", "headers": {}}]}
+            ]}})
+        if request.method == "PUT":
+            return httpx.Response(200)
+        if request.method == "POST":
+            return httpx.Response(200, json={"data": {"task_id": "t"}})
+        # Tache reussie, mais aucune metrique reconnue.
+        return httpx.Response(200, json={
+            "status": 200,
+            "data": {"task_status": "success", "results": {"unexpected_shape": [1, 2, 3]}},
+        })
+
+    service = SkinAIService(client=_client(handler))
+    with pytest.raises(YouCamProviderError) as caught:
+        await service.analyze(b"bytes", "image/jpeg")
+
+    error = caught.value
+    assert error.provider_code == "empty_result"
+    assert error.detail, "the payload must travel with the error"
+    assert "unexpected_shape" in error.detail

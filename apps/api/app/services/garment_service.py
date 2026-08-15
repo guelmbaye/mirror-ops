@@ -163,6 +163,24 @@ def select_garment(action: ChangeAction, moment: MomentSpec) -> Garment:
     return max(candidates, key=lambda g: (score_garment(g, moment), g.id))
 
 
+def next_best_garment(action: ChangeAction, moment: MomentSpec, exclude: set[str]) -> Garment | None:
+    """Le meilleur vetement de la categorie, hors ceux deja essayes.
+
+    Certaines photos de vetement passent tous nos controles — vraie
+    photographie, personne dessus, definition correcte — et font quand meme
+    echouer le rendu. Observe en direct : `jacket_01` echoue la ou `jacket_02`
+    reussit, sur la meme photo. Nous ne savons pas dire lesquelles a l'avance,
+    donc le produit doit survivre a la rencontre.
+    """
+    category = category_for_action(action)
+    if category is None:
+        return None
+    candidates = [g for g in list_garments(category) if g.id not in exclude]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda g: (score_garment(g, moment), g.id))
+
+
 def normalized_garment_bytes(path: Path, *, min_long_side: int = 1024) -> bytes:
     """JPEG opaque, cote long >= 1024 px, fond blanc si transparence."""
     import io

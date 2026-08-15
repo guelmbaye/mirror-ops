@@ -42,14 +42,68 @@ from app.services.storage import get_storage, session_key
 logger = logging.getLogger("mirror_ops.vto")
 
 
-async def _load_source_image(db: AsyncSession, analysis: AppearanceAnalysis) -> tuple[ImageAsset, bytes]:
+async def _load_source_image(
+    db: AsyncSession, session_id: str, analysis: AppearanceAnalysis
+) -> tuple[ImageAsset, bytes]:
+    """La photo preparee, ET l'asset qui la sert comme etat « avant ».
+
+    Le comparateur superposait la photo D'ORIGINE au rendu produit a partir de
+    la photo PREPAREE. Sur un cliche etire, complete sur les cotes avant envoi,
+    les deux cadrages differaient : le « avant » paraissait zoome, et la
+    difference affichee incluait un recadrage. Une preuve visuelle doit comparer
+    deux images qui ne different que par le vetement.
+    """
     asset = (
         await db.execute(select(ImageAsset).where(ImageAsset.id == analysis.image_id))
     ).scalar_one_or_none()
     if asset is None:
         raise AppError(ErrorCode.INVALID_STATE, "Your photo is no longer available. Retake it.")
-    data = await get_storage().get(asset.storage_key)
-    return asset, _bounded(data)
+
+    original = await get_storage().get(asset.storage_key)
+    prepared = _bounded(original)
+    if prepared is original:
+        return asset, prepared
+
+    return await _store_prepared(db, session_id, asset, prepared), prepared
+
+
+async def _store_prepared(
+    db: AsyncSession, session_id: str, source: ImageAsset, data: bytes
+) -> ImageAsset:
+    """Enregistre la photo preparee, pour qu'elle serve d'etat « avant »."""
+    import io
+
+    from PIL import Image
+
+    from app.core.security import hash_bytes
+    from app.db.base import in_minutes
+    from app.services.storage import session_key
+
+    digest = hash_bytes(data)
+    key = session_key(session_id, "input", f"{digest[:16]}.jpg")
+    await get_storage().put(key, data, "image/jpeg")
+
+    with Image.open(io.BytesIO(data)) as image:
+        width, height = image.size
+
+    prepared = ImageAsset(
+        session_id=session_id,
+        kind=source.kind,
+        storage_key=key,
+        mime_type="image/jpeg",
+        size_bytes=len(data),
+        width=width,
+        height=height,
+        content_hash=digest,
+        expires_at=source.expires_at or in_minutes(get_settings().MEDIA_TTL_MINUTES),
+    )
+    db.add(prepared)
+    await db.flush()
+    logger.info(
+        "source_prepared_stored",
+        extra={"from": source.id, "to": prepared.id, "size": f"{width}x{height}"},
+    )
+    return prepared
 
 
 #: Cote long maximal envoye au provider. Les photos de telephone montent a
@@ -57,27 +111,88 @@ async def _load_source_image(db: AsyncSession, analysis: AppearanceAnalysis) -> 
 #: certaines limites provider se declenchent silencieusement.
 MAX_SOURCE_LONG_SIDE = 2048
 
+#: Au-dela de ce rapport hauteur/largeur, la photo est completee sur les cotes.
+#:
+#: Une photo recadree en bande — 1306x4080, soit 1:3.12, deux fois plus etiree
+#: qu'un portrait de telephone — a produit `error_editing_failed` alors que le
+#: vetement de reference etait irreprochable. Le modele d'essayage attend une
+#: personne dans un cadre de photo, pas dans une colonne.
+MAX_SOURCE_ASPECT = 2.1
+
+#: Rapport vise apres completion : celui d'un portrait de telephone.
+TARGET_SOURCE_ASPECT = 16 / 9
+
 
 def _bounded(image_bytes: bytes) -> bytes:
-    """Reduit la photo source si elle depasse, sans jamais l'agrandir."""
+    """Prepare la photo source : taille bornee, et cadre de proportions saines.
+
+    On ne recadre JAMAIS : sur un plan en pied, retirer de la hauteur coupe les
+    chaussures — c'est-a-dire une piece que le produit peut recommander. On
+    complete donc sur les cotes, ce qui preserve la personne entiere.
+    """
     import io
 
     from PIL import Image
 
     try:
         with Image.open(io.BytesIO(image_bytes)) as opened:
-            if max(opened.size) <= MAX_SOURCE_LONG_SIDE:
-                return image_bytes
             image = opened.convert("RGB")
-            scale = MAX_SOURCE_LONG_SIDE / max(image.size)
-            image = image.resize(
-                (round(image.width * scale), round(image.height * scale)), Image.LANCZOS
-            )
+            changed = False
+
+            if image.height / image.width > MAX_SOURCE_ASPECT:
+                target_width = round(image.height / TARGET_SOURCE_ASPECT)
+                canvas = Image.new("RGB", (target_width, image.height), _edge_colour(image))
+                canvas.paste(image, ((target_width - image.width) // 2, 0))
+                logger.info(
+                    "source_letterboxed",
+                    extra={
+                        "from": f"{image.width}x{image.height}",
+                        "to": f"{target_width}x{image.height}",
+                    },
+                )
+                image, changed = canvas, True
+
+            if max(image.size) > MAX_SOURCE_LONG_SIDE:
+                scale = MAX_SOURCE_LONG_SIDE / max(image.size)
+                image = image.resize(
+                    (round(image.width * scale), round(image.height * scale)), Image.LANCZOS
+                )
+                changed = True
+
+            if not changed:
+                return image_bytes
+
             buffer = io.BytesIO()
             image.save(buffer, format="JPEG", quality=93)
             return buffer.getvalue()
     except Exception:  # pragma: no cover - on n'echoue jamais sur une optimisation
         return image_bytes
+
+
+def _edge_colour(image) -> tuple[int, int, int]:
+    """Teinte moyenne des bords, pour que la completion ne se voie pas."""
+    from PIL import Image
+
+    strip = image.resize((3, 3), Image.BILINEAR)
+    corners = [strip.getpixel(p) for p in ((0, 0), (2, 0), (0, 2), (2, 2))]
+    return tuple(sum(channel) // len(corners) for channel in zip(*corners))
+
+
+def _fallback_garment(exc, uploaded, action, moment, attempted: set[str]):
+    """La piece suivante, si et seulement si le refus la justifie.
+
+    Une seule alternative : au-dela, on brulerait des unites a chercher une
+    aiguille. Deux echecs d'affilee signalent la photo ou la pose, pas le
+    vetement.
+    """
+    if uploaded is not None:
+        # La piece de l'utilisateur : il l'a choisie, on ne la remplace pas.
+        return None
+    if getattr(exc, "provider_code", None) != "error_editing_failed":
+        return None
+    if len(attempted) >= 2:
+        return None
+    return garment_service.next_best_garment(action, moment, exclude=attempted)
 
 
 async def generate_vto(
@@ -136,7 +251,7 @@ async def generate_vto(
             garment.category,
         )
 
-    asset, source_bytes = await _load_source_image(db, analysis)
+    asset, source_bytes = await _load_source_image(db, session.id, analysis)
 
     result = VTOResult(
         session_id=session.id,
@@ -170,10 +285,57 @@ async def generate_vto(
         "source_bytes": len(source_bytes),
         "action": str(action),
     }
+    async def _render():
+        """Essaie la piece choisie, puis au plus une alternative.
+
+        Une piece de catalogue qui passe tous nos controles peut quand meme
+        faire echouer le rendu — mesure en direct : `jacket_01` echoue la ou
+        `jacket_02` reussit, sur la meme photo. Nous ne savons pas dire
+        lesquelles a l'avance, donc le produit doit survivre a la rencontre.
+
+        La DECISION ne change pas : meme action, meme categorie. Seule la piece
+        qui sert de preuve differe — la semantique de « Try another », appliquee
+        une fois, automatiquement.
+
+        Ecrit en boucle et non en `try/except` imbriques : une exception levee
+        DANS un `except` echappe aux autres gestionnaires du meme `try`, et la
+        seconde tentative remontait alors sans etre traduite.
+        """
+        nonlocal garment_ref, garment_label, garment_key
+        attempted: set[str] = set()
+
+        while True:
+            attempted.add(garment_key)
+            try:
+                return await provider.generate(
+                    source_bytes, garment_ref, source_mime=asset.mime_type
+                )
+            except YouCamError as failure:
+                alternative = _fallback_garment(
+                    failure, uploaded, action, moment_spec, attempted
+                )
+                if alternative is None:
+                    raise
+                logger.info(
+                    "vto_fallback_garment",
+                    extra={
+                        "failed": garment_key,
+                        "trying": alternative.id,
+                        "reason": getattr(failure, "provider_code", None),
+                    },
+                )
+                garment_ref = garment_service.to_ref(alternative)
+                garment_label, garment_key = alternative.name, alternative.id
+                context["garment_id"] = public["garment_id"] = alternative.id
+
     try:
-        generated = await provider.generate(
-            source_bytes, garment_ref, source_mime=asset.mime_type
-        )
+        generated = await _render()
+
+        # La piece a peut-etre change en cours de route : le resultat doit
+        # nommer celle qui a REELLEMENT servi, sinon « Try another » proposerait
+        # de remplacer un vetement qui n'a jamais ete utilise.
+        result.garment_id = garment_key
+        result.meta = {**(result.meta or {}), "garment_name": garment_label}
     except YouCamInvalidImageError as exc:
         info = {**diagnostics(exc, provider.provider_name), **context}
         logger.warning("vto_image_rejected", extra=info)

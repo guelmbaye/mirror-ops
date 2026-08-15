@@ -32,14 +32,35 @@ from app.services.garment_service import list_garments  # noqa: E402
 def main() -> int:
     audits = audit_garments(list_garments())
     placeholders = [a for a in audits if a.is_placeholder]
+    unusable = [a for a in audits if not a.is_usable]
 
     for audit in audits:
-        state = "SUBSTITUTION" if audit.is_placeholder else "ok"
+        if audit.is_placeholder:
+            state = "SUBSTITUTION"
+        elif audit.shows_a_person:
+            state = "QUELQU'UN LE PORTE"
+        else:
+            state = "ok"
         print(f"  {audit.garment_id:<14} {audit.colours:>6} couleurs   {state}")
 
-    if not placeholders:
+    worn = [a for a in audits if a.shows_a_person]
+    if worn:
+        print(f"\n{len(worn)} visuel(s) montrent quelqu'un portant le vetement.")
+        print("L'essayage attend une piece SEULE — a plat, sur cintre, ou en")
+        print("mannequin fantome. Une photo de personne habillee demande au")
+        print("modele de deviner ou s'arrete le vetement, et produit souvent")
+        print("un `error_editing_failed` alors que l'image est nette.")
+
+    if not unusable:
         print(f"\n{len(audits)} vetements : tous exploitables par un try-on reel.")
         return 0
+
+    if not placeholders:
+        # Uniquement des vetements portes : le catalogue n'est pas de
+        # substitution, mais il n'est pas exploitable pour autant.
+        print(f"\n{len(audits) - len(unusable)} vetement(s) sur {len(audits)} sont")
+        print("exploitables ; les autres sont listes ci-dessus.")
+        return 1
 
     print(
         f"\n{len(placeholders)} vetement(s) sur {len(audits)} sont des aplats "

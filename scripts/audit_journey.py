@@ -105,6 +105,17 @@ def audit(client: httpx.Client, api: str, photo: bytes, args_base: str) -> None:
     else:
         check("OK", "YouCam configure en mode live")
 
+    if health.get("face_detection") == "unavailable":
+        check(
+            "FAIL",
+            "face detection unusable",
+            "Skin AI will never be called and framing cannot be measured. "
+            "Most likely the PyPI stub named `cv2` is shadowing OpenCV: "
+            "pip uninstall -y cv2 && pip install opencv-python-headless",
+        )
+    else:
+        check("OK", "face detection available")
+
     if health.get("garments") == "placeholder":
         check(
             "WARN",

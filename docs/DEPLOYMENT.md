@@ -682,6 +682,7 @@ Réponse attendue en production :
 | `"youcam": "missing_credentials"` | clé absente | renseigner `YOUCAM_API_KEY` |
 | `"youcam": "missing_dependency"` | `cryptography` absent | reconstruire l'image |
 | `"garments": "placeholder"` | catalogue non remplacé | voir §11.5 |
+| `"face_detection": "unavailable"` | **OpenCV 5.0 a supprimé les cascades de Haar** ; `cv2.data.haarcascades` existe mais est vide | `pip install "opencv-python-headless>=4.10,<5"` — la borne haute est dans `requirements.txt`, mais une installation manuelle sans elle récupère 5.x |
 
 ### L'audit de bout en bout
 

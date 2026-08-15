@@ -82,8 +82,8 @@ MIRROR OPS is a **contextual appearance decision engine**.
    it.
 6. **Act** — everything else stays exactly as it was.
 
-The same casual look scores **73 for travel and 51 for a wedding**. That
-difference *is* the product.
+The same casual look scores **69 for travel and 47 for a wedding** — two
+different verdicts on an unchanged photo. That difference *is* the product.
 
 MIRROR OPS can also decide that nothing is worth changing. `NO CHANGE` is a
 real outcome and consumes no try-on credit. A decision engine that cannot
@@ -138,8 +138,8 @@ the try-on.
 better. Our engine reasons in *severity*. Getting that backwards would have
 made flawless skin read as a problem, and pushed decisions the wrong way.
 
-**A screen that contradicted itself.** One occasion produced `FIT 73` *and*
-"Change the jacket" — "you're ready", then "change the jacket". Two lines that
+**A screen that contradicted itself.** One occasion produced a `FIT` verdict
+*and* "Change the jacket" — "you're ready", then "change the jacket". Two lines that
 disagree destroy credibility faster than any crash. The verdict and the action
 are now reconciled by construction, and a test walks every occasion and
 dressiness level to prove no screen can promise readiness while demanding a
@@ -432,21 +432,127 @@ and the rules ask for footage on that device.
 
 | Time | On screen | Voice-over |
 |---|---|---|
-| 0:00–0:12 | Home, logo, signature | *Ten minutes before something that matters, you don't need twenty outfit ideas. You need to know if what you're wearing works — and if not, what single thing to change.* |
-| 0:12–0:25 | Moment: interview · professional · under 5 min | *Mirror Ops starts with the moment, not the wardrobe. The same outfit is right for a dinner and wrong for a wedding.* |
-| 0:25–0:45 | Real capture, outfit chips, "How dressed up is it?" | *One photo. Which pieces you're wearing. How dressed up it is. That's all it asks.* |
-| 0:45–1:00 | Analyzing screen | *Behind this, YouCam Skin AI reads visual signals from your appearance. Because Skin AI needs a close-up and we photograph an outfit, the server crops your face from the same shot — no second photo.* |
-| 1:00–1:20 | **Fit verdict** — "Almost there" + gauge | *First answer: does this look fit the moment? Almost there. The outfit works, but one piece pulls it down.* |
-| 1:20–1:45 | **ONE CHANGE** + Keep ledger | *Then the decision. One change. Not a list — one. And everything else stays, explicitly.* |
-| 1:45–2:15 | Try-on: button, wait, **Before/After** dragged | *YouCam Apparel Virtual Try-On proves it. Only the winning change is rendered — one journey, one try-on.* |
-| 2:15–2:30 | "Try a piece of your own" → photo of a jacket → result | *Or photograph the jacket you're actually hesitating about, and see it on you.* |
-| 2:30–2:40 | Ready screen | *One change. That's all you needed.* |
+| 0:00–0:12 | Home, logo, signature | *Ten minutes before something that matters, you don't need twenty outfit ideas. You need to know whether what you're wearing works — and if not, what one thing to change.* |
+| 0:12–0:24 | Moment: **interview · professional · under 5 min** | *So Mirror Ops starts with the moment, not the wardrobe.* |
+| 0:24–0:40 | Full-length photo · tick all five pieces · **In between** | *One photo, head to feet. What you're wearing, and how dressed up it is.* |
+| 0:40–0:56 | **Fit verdict** — "Almost there." 64/100, gauge settles | *First answer: does this look fit the moment? Almost there. YouCam Skin AI reads the visual signals from that same photo — and because it needs a close-up while we shot a full-length, the server crops the face itself.* |
+| 0:56–1:12 | **ONE CHANGE** — "Change the jacket for something sharper." + Keep ledger (top, bottom, shoes, accessories) | *Then the decision. One change — not a list. It even says which way: sharper, not just different. And everything else stays, explicitly.* |
+| 1:12–1:42 | Try-on: button, **cut**, **Before/After** dragged | *YouCam Apparel Virtual Try-On proves it. Only the winning change is rendered — one journey, one try-on.* |
+| 1:42–2:00 | **Back to Moment → dinner · elegant**, nothing else touched: "You're good to go." 74 and **"Don't change it."** | *Same look, same photo. Different moment — and now there's nothing worth changing.* |
+| 2:00–2:12 | **→ travel · approachable**: "Change the jacket for something **easier**." | *And the direction follows the moment too. Sharper for the interview, easier for the flight — same jacket.* |
+| 2:12–2:24 | Ready screen, result shown, "Save this" | *One change. That's all you needed.* |
 
-### Also shoot this
+**Every line is measured**, on a real full-length photograph, through the live
+integration, with the honest dressiness answer for a blazer and chinos. Nothing
+here is staged: declaring the outfit "casual" would have produced a sharper
+contrast and would have been a lie on camera.
 
-Redo the Moment screen with **wedding**, on the same photo, to show a different
-verdict. Three seconds are enough, and it demonstrates the contextual claim
-better than any sentence.
+The 2:00 segment is the strongest fifteen seconds in the film and the easiest to
+drop if time runs short. It shows the recommendation **reversing direction** on
+an unchanged look — the one thing no outfit generator can imitate.
+
+**Measured latencies, on the live integration:** Skin AI answers in about 6.5 s,
+the decision is instant, and the try-on takes 13 to 15 s. That try-on wait is
+roughly 10% of the whole video — cut to the result, or keep talking over it, but
+do not film thirty seconds of a spinner.
+
+**Every line above is what the screen actually shows**, measured on a real
+full-length photograph through the live integration — dressed up, all five
+pieces ticked, shoes flagged. Verify on your own photo before shooting:
+
+```bash
+python scripts/probe_skin.py your-photo.jpg      # framing, crop, Skin AI
+python scripts/probe_vto.py your-photo.jpg jacket_02   # one try-on, raw response
+python scripts/demo_pairs.py --dressiness 0.88   # rank the moment pairs
+```
+
+**The photo must be full-length.** It is what makes the shoes recommendable at
+all: a waist-up shot removes them and the bottom from the decision, and the
+sharpest verdict in the product — naming the piece that holds the look back —
+goes with them.
+
+**The complete arc lands by 1:40.** That is deliberate. Judges are not required
+to watch past three minutes, but they decide much earlier than that: if the
+payoff arrives at 2:00, someone who stops at 60 seconds has seen a form and a
+spinner. Problem, decision and proof must all be past before anyone would think
+of leaving.
+
+The two segments after 1:40 are the differentiators, not the demo: the occasion
+flip proves the contextual claim, and the user's own garment shows the real
+moment of hesitation. Cut either if the recording runs long — the product is
+already fully explained.
+
+### The occasion flip is not optional — and the pair matters
+
+It is the only fifteen seconds that *prove* the thesis rather than assert it.
+Everything else in the video could describe an AI stylist; a verdict and a
+decision both changing on an unchanged photo could not.
+
+**Use interview / professional → dinner / elegant**, dressiness "In between":
+
+```
+interview / professional   Almost there.       64   Change the jacket for something sharper.
+dinner    / elegant        You're good to go.  74   Don't change it.
+travel    / approachable   Almost there.       67   Change the jacket for something easier.
+```
+
+Verdict flips, decision flips, and the third line reverses the *direction* on the
+same look. Measured on a real photograph through the live integration — and the
+jacket is the piece to demo because it is the one verified end to end.
+
+Nothing about the look changes between the two screens — same photo, same
+shoes, same declaration. Only the moment moves, and the product goes from naming
+a specific fault to refusing to touch anything.
+
+Change **both** answers. The moment is occasion *and* goal *and* time: keeping
+"professional" for the second run flips the score without flipping the
+decision, and the two screens look nearly identical.
+
+**Flag the shoes as more casual than the rest.** That optional tap is what lets
+the verdict name a piece rather than say "as a whole, this look sits below…".
+Without it the sentence is generic, and the demo loses its sharpest moment.
+
+Verdict flips, action flips, and the second screen is the product **refusing to
+recommend anything** — the single best argument that this is a decision engine.
+
+**Do not use interview → wedding.** They are the two closest occasions in the
+system (formality 0.90 and 0.88) and produce two identical screens. Same for
+business. Verify any pairing before shooting:
+
+```bash
+python scripts/demo_pairs.py                 # ranks every pair
+python scripts/demo_pairs.py --dressiness 0.85
+```
+
+Shoot it as one take: tap back, change the occasion, let the screen land. Do not
+narrate over the change itself.
+
+**Answer "How dressed up is it?"** — it is required, and for good reason: without
+it every look reads as mid-formality, an interview and a flight land two points
+apart, and the flip shows nothing.
+
+Answer it **honestly**, and check the pairing rather than assuming. The middle
+level is equidistant from the formal and casual extremes, so some pairs collapse
+on it — an interview at 64 against a flight at 67, the same recommendation on
+both. Others separate cleanly: the same look reads 64 for an interview and 74
+for a dinner, a change against a "good to go".
+
+`scripts/demo_pairs.py --dressiness 0.55` ranks them. Choosing a dressiness that
+misdescribes the outfit to force a contrast would be staging the demo.
+
+**Tick every piece you're wearing**, jacket included. Nothing is pre-selected —
+deliberately, so an empty box is a statement rather than an oversight. If the
+jacket is left undeclared, the recommendation becomes "Add a jacket" for every
+formal occasion and the flip loses its force: the decision is then driven by the
+missing piece rather than by the moment.
+
+### The comprehension test comes first
+
+Show the still frames — moment, fit verdict, ONE CHANGE, before/after — to two
+people who have never heard of the product, and ask what it does. If the answer
+isn't close to *"it tells me what to change so I fit the situation"*, the screens
+are not carrying the idea and narration won't rescue it. Details in
+`docs/DEMO_RUNBOOK.md` §2 bis.
 
 ### Before recording
 

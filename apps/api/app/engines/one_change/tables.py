@@ -19,6 +19,12 @@ CHANGE_ACTIONS: tuple[ChangeAction, ...] = (
     ChangeAction.CHANGE_BOTTOM,
     ChangeAction.CHANGE_SHOES,
     ChangeAction.CHANGE_ACCESSORY,
+    # Retirer est un geste a part entiere du positionnement — « change a piece,
+    # add one that's missing, remove one too many ». Il avait ses tables, ses
+    # libelles et ses tests, mais ne figurait pas ici : le moteur ne l'a jamais
+    # evalue. Un balayage exhaustif l'a revele (0 occurrence sur 43 200
+    # decisions), la lecture du code ne l'avait pas vu.
+    ChangeAction.REMOVE_ACCESSORY,
     ChangeAction.CHANGE_COLOR,
 )
 
@@ -344,6 +350,19 @@ SKIN_MATERIALITY_THRESHOLDS: dict[str, float] = {
 }
 
 #: Influence maximale du signal peau sur une dimension d'apparence.
+#: Prime accordee au levier qui corrige une piece NETTEMENT en retrait du reste.
+#:
+#: « Don't redesign your look. Fix the mismatch. » Sans ce terme, le moteur
+#: optimise le gain general : quand des baskets detonnent dans une tenue
+#: habillee, il recommande de changer la veste — plus rentable en moyenne, mais
+#: hors sujet. Le verdict nommait alors les chaussures pendant que l'action
+#: visait la veste.
+#:
+#: Ne s'applique QUE si l'ecart est reel (voir ANOMALY_MARGIN) : sur une tenue
+#: homogene, ce terme vaut zero et ne deplace rien.
+ANOMALY_BONUS = 0.22
+ANOMALY_MARGIN = 0.12
+
 SKIN_MAX_INFLUENCE: float = 0.08
 
 #: NO_CHANGE ne devient competitif que si la tenue actuelle est REELLEMENT alignee.
@@ -362,3 +381,38 @@ for _occasion, _levels in CONTEXT_FIT.items():
         ChangeAction.REMOVE_ACCESSORY,
         HIGH if OCCASION_TARGET_FORMALITY.get(_occasion, 0.6) >= 0.75 else MEDIUM,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Completude : toute action evaluee doit exister dans TOUTES les tables.
+#
+# REMOVE_ACCESSORY figurait dans l'enumeration, dans les libelles et dans les
+# tests, mais pas dans CHANGE_ACTIONS ni dans TIME_FIT. Le moteur ne l'a jamais
+# evalue, et rien ne l'a signale : une action absente ne provoque aucune erreur,
+# elle disparait simplement. D'ou ce garde-fou explicite.
+# --------------------------------------------------------------------------- #
+
+# Retirer un accessoire prend quelques secondes : realisable quel que soit le
+# temps disponible, contrairement a un changement de bas.
+for _time, _levels in TIME_FIT.items():
+    _levels.setdefault(ChangeAction.REMOVE_ACCESSORY, 1.0)
+
+for _table_name, _table in (
+    ("CAPABILITY", CAPABILITY),
+    ("VISIBILITY", VISIBILITY),
+    ("SIMPLICITY", SIMPLICITY),
+    ("VTO_FEASIBILITY", VTO_FEASIBILITY),
+):
+    _missing = [a for a in CHANGE_ACTIONS if a not in _table]
+    if _missing:  # pragma: no cover - defaut de configuration
+        raise RuntimeError(f"{_table_name} is missing: {[str(a) for a in _missing]}")
+
+for _occasion, _levels in CONTEXT_FIT.items():
+    _missing = [a for a in CHANGE_ACTIONS if a not in _levels]
+    if _missing:  # pragma: no cover
+        raise RuntimeError(f"CONTEXT_FIT[{_occasion}] is missing: {[str(a) for a in _missing]}")
+
+for _time, _levels in TIME_FIT.items():
+    _missing = [a for a in CHANGE_ACTIONS if a not in _levels]
+    if _missing:  # pragma: no cover
+        raise RuntimeError(f"TIME_FIT[{_time}] is missing: {[str(a) for a in _missing]}")

@@ -19,7 +19,12 @@ PHOTO_GUIDANCE: dict[str, str] = {
     "error_no_face": "We couldn't find a face in that photo.",
     "error_face_parsing": "We couldn't read your face clearly. Try better, more even light.",
     "error_large_face_angle": "Look straight at the camera rather than to the side.",
-    "error_src_face_too_small": "Move a bit closer, or take the photo in better light.",
+    # Mesure contre l'API reelle : la photo REFUSEE portait un visage de 906 px,
+    # celle qui passe n'en a que 289. Ce code signifie surtout « je ne trouve
+    # pas de visage exploitable » — lunettes de soleil, angle, contre-jour —
+    # bien plus qu'une question de taille.
+    "error_src_face_too_small": "We couldn't read your face clearly. Face the camera, "
+    "without sunglasses, in even light.",
     "error_src_face_out_of_bound": "Keep your whole face inside the frame.",
     "error_unsupport_ratio": "That photo's shape isn't supported. A portrait shot works best.",
     "error_below_min_image_size": "That photo is too small. Take a new one at full resolution.",

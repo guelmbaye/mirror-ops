@@ -71,7 +71,20 @@ class SkinAIService:
             extra={"latency_ms": latency_ms, "observations": list(observations)},
         )
         if not observations:
-            raise YouCamProviderError("No usable skin observation returned")
+            # La tache a abouti, mais rien d'exploitable n'en est ressorti.
+            # Sans la charge utile, cette erreur est un cul-de-sac : elle ne
+            # porte ni code provider, ni indice sur ce qui a ete renvoye.
+            import json as _json
+
+            try:
+                snippet = _json.dumps(result)[:400]
+            except (TypeError, ValueError):  # pragma: no cover
+                snippet = str(result)[:400]
+            raise YouCamProviderError(
+                "No usable skin observation returned",
+                detail=snippet,
+                provider_code="empty_result",
+            )
 
         return SkinAnalysisResult(
             observations=observations,

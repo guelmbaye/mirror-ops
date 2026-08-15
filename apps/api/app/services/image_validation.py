@@ -77,9 +77,22 @@ def validate_image(data: bytes, declared_mime: str | None = None) -> ValidatedIm
 
     width, height = image.size
     if width < settings.MIN_IMAGE_WIDTH or height < settings.MIN_IMAGE_HEIGHT:
+        # Nommer la dimension et le seuil.
+        #
+        # « We need a clearer, larger view » laissait croire a un probleme de
+        # nettete alors qu'un screenshot de 143 px de large avait simplement ete
+        # envoye a la place de la photo. L'utilisateur reprenait la meme image,
+        # mieux eclairee, et se faisait refuser a l'identique.
+        smallest = "width" if width < settings.MIN_IMAGE_WIDTH else "height"
+        value = width if smallest == "width" else height
+        minimum = (
+            settings.MIN_IMAGE_WIDTH if smallest == "width" else settings.MIN_IMAGE_HEIGHT
+        )
         raise AppError(
             ErrorCode.INVALID_IMAGE,
-            "We need a clearer, larger view of your look. Try retaking the photo.",
+            f"This image is only {value} pixels {'wide' if smallest == 'width' else 'tall'} — "
+            f"we need at least {minimum}. Send the original photo rather than a "
+            "screenshot or a cropped copy.",
         )
 
     quality = assess_quality(image)

@@ -88,6 +88,19 @@ class ImageQualityOut(APIModel):
     full_look_visible: bool = True
 
 
+class FramingOut(APIModel):
+    """Ce que la photo montre — et donc ce que le produit peut prouver.
+
+    Une recommandation qu'on ne peut pas montrer casse le troisieme pilier :
+    decider, expliquer, PROUVER.
+    """
+
+    framing: str
+    label: str
+    face_ratio: float | None = None
+    visible_elements: list[str] = []
+
+
 class AppearanceAnalysisResponse(APIModel):
     analysis_id: str
     status: str = "completed"
@@ -100,6 +113,7 @@ class AppearanceAnalysisResponse(APIModel):
     element_suitability: dict[str, float]
     image_quality: ImageQualityOut
     data_confidence: float
+    framing: FramingOut | None = None
     image_url: str | None = None
     created_at: UtcDateTime
 

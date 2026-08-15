@@ -200,7 +200,9 @@ def test_a_present_jacket_is_still_a_change():
     outfit[OutfitElement.JACKET] = OutfitItem(present=True, known=True, formality=0.2)
     outcome = default_engine.evaluate(context(outfit=outfit))
     if outcome.action is ChangeAction.CHANGE_JACKET:
-        assert outcome.label == "Change the jacket"
+        # Le libelle porte desormais le SENS quand le niveau est en cause :
+        # « for something sharper » / « for something easier ».
+        assert outcome.label.startswith("Change the jacket")
 
 
 def test_engine_is_deterministic():

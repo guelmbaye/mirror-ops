@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.integrations.youcam import INSTALL_HINT, crypto_available
+from app.services.face_crop import opencv_status
 from app.services.garment_audit import placeholder_ids
 from app.services.garment_service import list_garments
 from app.core.errors import register_exception_handlers
@@ -65,6 +66,17 @@ async def lifespan(app: FastAPI):
             )
         if settings.YOUCAM_AUTH_MODE == "client_credentials" and not crypto_available():
             logger.error("youcam_missing_dependency", extra={"hint": INSTALL_HINT})
+
+        face_ready, face_reason = opencv_status()
+        if not face_ready:
+            logger.error(
+                "face_detection_unavailable",
+                extra={
+                    "reason": face_reason,
+                    "impact": "Skin AI will never be called, and photo framing "
+                    "cannot be measured. The journey still works, without a skin signal.",
+                },
+            )
 
         placeholders = placeholder_ids(list_garments())
         if placeholders:

@@ -39,11 +39,21 @@ from app.models.enums import OutfitElement, SessionState
 from app.models.image_asset import ImageAsset
 from app.models.session import UserSession
 from app.services import session_service
-from app.services.face_crop import crop_face_for_skin
+from app.services.face_crop import FALLBACK_FACE_RATIO, crop_face_for_skin
+from app.services.framing import estimate_framing
 from app.services.image_validation import ValidatedImage, validate_image
 from app.services.storage import get_storage, session_key
 
 logger = logging.getLogger("mirror_ops.appearance")
+
+
+def _tighter_crop(exc, image, provider):
+    """Le recadrage de repli, si et seulement si le refus le justifie."""
+    if getattr(exc, "provider_code", None) != "error_src_face_too_small":
+        return None
+    if not (settings.SKIN_FACE_CROP_ENABLED and getattr(provider, "requires_face_crop", False)):
+        return None
+    return crop_face_for_skin(image.data, target=FALLBACK_FACE_RATIO)
 
 
 def _debug_details(info: dict[str, str]) -> dict[str, str] | None:
@@ -116,6 +126,21 @@ async def run_skin_analysis(image: ValidatedImage) -> tuple[SkinObservations, st
 
     try:
         result = await provider.analyze(payload, payload_mime)
+    except YouCamInvalidImageError as exc:
+        # « Visage trop petit » malgre le recadrage : le provider mesure
+        # autrement que nous, ou son detecteur trouve un visage plus petit.
+        # Une seconde tentative, plus serree, coute une unite — et seulement
+        # quand la premiere a echoue pour cette raison precise.
+        retry = _tighter_crop(exc, image, provider)
+        if retry is None:
+            raise
+        logger.info("skin_retry_tighter_crop", extra={"face_ratio": retry.face_ratio})
+        try:
+            result = await provider.analyze(retry.image_bytes, retry.mime_type)
+        except YouCamError as second:
+            info = diagnostics(second, provider.provider_name)
+            logger.warning("skin_provider_degraded", extra={**info, "attempt": "tighter"})
+            return _to_observations({}, "unavailable", False), "unavailable", False, 0
     except YouCamRateLimitError:
         raise AppError(ErrorCode.RATE_LIMITED)
     except (YouCamInvalidImageError, YouCamQuotaExhaustedError, YouCamTimeoutError, YouCamError) as exc:
@@ -159,7 +184,11 @@ async def analyze_appearance(
     asset = await store_input_image(db, session, image)
 
     skin, provider_name, simulated, latency_ms = await run_skin_analysis(image)
-    signals = build_appearance_signals(moment_spec, outfit, skin, image.quality)
+    # Ce que la photo montre borne ce que le produit peut PROUVER.
+    estimate = estimate_framing(image.data)
+    signals = build_appearance_signals(
+        moment_spec, outfit, skin, image.quality, visible_elements=set(estimate.visible)
+    )
 
     analysis = AppearanceAnalysis(
         session_id=session.id,
@@ -181,6 +210,7 @@ async def analyze_appearance(
             for element, item in outfit.items()
         },
         image_quality=image.quality.as_dict(),
+        framing=estimate.as_dict(),
         data_confidence=signals.data_confidence,
     )
     db.add(analysis)

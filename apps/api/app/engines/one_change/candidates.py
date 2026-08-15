@@ -29,6 +29,17 @@ def generate_candidates(context: DecisionContext) -> tuple[list[ChangeAction], l
     for action in CHANGE_ACTIONS:
         element: OutfitElement | None = ACTION_ELEMENT[action]
 
+        # Le produit promet de PROUVER son conseil. Recommander de changer des
+        # chaussures absentes du cadre produit un before/after ou rien ne bouge :
+        # la promesse se casse au moment ou elle compte.
+        if (
+            element is not None
+            and appearance.visible_elements is not None
+            and element not in appearance.visible_elements
+        ):
+            dropped.append(FilteredCandidate(action, "not_visible_in_photo"))
+            continue
+
         if element is not None and element not in appearance.present_elements:
             # Une veste absente n'est pas une impasse : c'est peut-etre
             # l'intervention a plus forte valeur. On la garde comme AJOUT.

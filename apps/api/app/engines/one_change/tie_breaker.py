@@ -1,10 +1,16 @@
 """Departage deterministe (Doc 04 §16 / §24).
 
 Si l'ecart entre deux candidats est < TIE_DELTA, on prefere, dans l'ordre :
-1. le moindre effort ;
-2. le meilleur context fit ;
-3. la generation VTO la plus simple ;
-4. l'explication la plus simple (ordre de priorite produit fige).
+1. le levier qui repare la piece qui detonne ;
+2. le moindre effort ;
+3. le meilleur context fit ;
+4. la generation VTO la plus simple ;
+5. l'explication la plus simple (ordre de priorite produit fige).
+
+Le premier critere passe AVANT l'effort, et ce n'est pas un detail : sans lui,
+le verdict nommait les chaussures pendant que l'action visait la veste — plus
+simple a changer, et donc gagnante de tous les quasi ex aequo. « Fix the
+mismatch » cesse d'etre une phrase des lors qu'un critere l'encode.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ def sort_candidates(candidates: list[ScoredCandidate]) -> list[ScoredCandidate]:
         candidates,
         key=lambda c: (
             -c.score,
+            not c.repairs_anomaly,
             -c.simplicity,
             -c.features.context_fit,
             -c.features.vto_feasibility,
@@ -54,6 +61,7 @@ def break_tie(candidates: list[ScoredCandidate], tie_delta: float) -> list[Score
     tied_sorted = sorted(
         tied,
         key=lambda c: (
+            not c.repairs_anomaly,
             -c.simplicity,
             -c.features.context_fit,
             -c.features.vto_feasibility,

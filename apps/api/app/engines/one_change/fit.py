@@ -71,6 +71,17 @@ def assess_fit(context: DecisionContext, action=None) -> FitAssessment:
     if gap < WEAK_ELEMENT_MARGIN:
         weakest = None
 
+    # Et ne le nommer que si la decision le traite REELLEMENT. Le moteur peut
+    # etre empeche (changer un bas est irrealisable en moins de cinq minutes) ou
+    # juger qu'aucune intervention ne vaut la peine. Annoncer « les chaussures
+    # tirent l'ensemble vers le bas » puis recommander autre chose laisse
+    # l'utilisateur devant deux phrases qui se contredisent.
+    if weakest is not None and action is not None:
+        from app.models.enums import MATERIALISED_ELEMENT
+
+        if MATERIALISED_ELEMENT.get(action) is not weakest:
+            weakest = None
+
     from app.models.enums import ChangeAction
 
     nothing_to_do = action is None or action is ChangeAction.NO_CHANGE
@@ -169,6 +180,17 @@ def _detail(
     return f"For {occasion}, the {label} is the clearest mismatch."
 
 
+#: Occasions qui ne prennent pas d'article : « what travel calls for », et non
+#: « what a travel calls for ». Une faute d'anglais dans la phrase centrale du
+#: produit coute plus cher que la ligne qui l'evite.
+ARTICLELESS_OCCASIONS = frozenset({"travel", "business", "dinner"})
+
+
 def _with_article(occasion: str) -> str:
-    """« an interview », « a wedding » : une faute d'article se remarque."""
+    """« an interview », « a wedding », mais « travel » tout court."""
+    if occasion == "other":
+        # « what other calls for » ne veut rien dire.
+        return "this occasion"
+    if occasion in ARTICLELESS_OCCASIONS:
+        return occasion
     return f"{'an' if occasion[:1] in 'aeiou' else 'a'} {occasion}"

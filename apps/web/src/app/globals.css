@@ -390,6 +390,8 @@ a {
 .capture {
   position: relative;
   width: 100%;
+  /* Le cadre vide garde une proportion stable ; une fois la photo prise, il
+     s'adapte a elle (voir .capture--filled). */
   aspect-ratio: 3 / 4;
   border: 1px dashed var(--mercury);
   border-radius: var(--radius);
@@ -402,14 +404,30 @@ a {
   overflow: hidden;
 }
 
+/* Photo presente : le cadre epouse l'image plutot que l'inverse. Une hauteur
+   maximale evite qu'un cliche tres etire ne pousse les commandes hors de
+   l'ecran. */
 .capture--filled {
+  aspect-ratio: auto;
+  max-height: 62vh;
   border-style: solid;
   border-color: var(--ink);
   background: var(--plate-sunk);
 }
 
+.capture--filled .capture__img {
+  max-height: 62vh;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Vue camera : cadre fixe et flux qui le remplit. `capture--filled` la rend
+   libre pour une photo, ce qui n'a pas de sens pour un direct — on retablit. */
 .capture--live {
   border-color: var(--signal-bright);
+  aspect-ratio: 3 / 4;
+  max-height: none;
 }
 
 .capture__video {
@@ -425,7 +443,12 @@ a {
 .capture__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `cover` rognait la photo pour remplir un cadre 3/4.
+     Sur un cliche en pied — souvent plus etire que 3/4 — l'apercu coupait les
+     jambes, alors que la consigne juste au-dessus demande de montrer un maximum
+     de sa tenue. On montrait donc au photographe autre chose que ce qui sera
+     analyse, et il ne pouvait pas verifier son cadrage. */
+  object-fit: contain;
   display: block;
 }
 
@@ -501,6 +524,19 @@ a {
   color: var(--signal);
 }
 
+/* Une absence non voulue est la seule erreur de saisie qui fait dire au produit
+   quelque chose de faux sur l'utilisateur. Elle se signale. */
+.wearing__warning {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--signal);
+  background: var(--wash);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
 .chip {
   padding: 8px 13px;
   border: 1px solid var(--mercury);
@@ -520,6 +556,25 @@ a {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--porcelain);
+}
+
+/* Seconde question, memes pieces. Sans traitement distinct, les deux rangees se
+   lisent comme un doublon : plus petites, en creux, et marquees du signal quand
+   elles sont retenues. */
+.chip--sub {
+  padding: 6px 11px;
+  font-size: 13px;
+  background: transparent;
+  border-style: dashed;
+  color: var(--graphite);
+}
+
+.chip--sub[aria-pressed="true"] {
+  background: var(--wash);
+  border-style: solid;
+  border-color: var(--signal);
+  color: var(--signal);
+  font-weight: 600;
 }
 
 /* --------------------------------------------------------------- l'analyse */

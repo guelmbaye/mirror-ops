@@ -111,6 +111,7 @@ def build_appearance_signals(
     outfit: dict[OutfitElement, OutfitItem],
     skin: SkinObservations,
     image_quality: ImageQuality,
+    visible_elements: set[OutfitElement] | None = None,
 ) -> AppearanceSignals:
     present = {e for e, item in outfit.items() if item.present}
     suitability = {e: item_suitability(outfit[e], moment) for e in present}
@@ -180,6 +181,10 @@ def build_appearance_signals(
         element_suitability=suitability,
         element_known=known,
         present_elements=present,
+        visible_elements=visible_elements,
+        element_formality={
+            element: outfit[element].formality for element in present if outfit[element].known
+        },
         data_confidence=round(data_confidence, 4),
         image_quality=image_quality.score,
         skin=skin,
