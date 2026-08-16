@@ -601,9 +601,31 @@ passed, the audit passed. All of them build signals in memory. Only a journey
 through the database exposed it — which is exactly what the end-to-end audit
 exists for, and it was not checking this.
 
-## 24. To arbitrate — product decisions that are yours
+## 24. Flagging a piece over-interpreted what the user said — fixed
 
-### 24.1 The journey captures no value
+Testing the script, an interview and a flight both returned *"Change the jacket
+for something sharper"* — the opposite of what the demo needs.
+
+The engine was right and the modelling was wrong. Flagging a piece as "more
+casual than the rest" subtracted a **flat 0.4** from its formality, which on an
+already-casual outfit lands on the floor at 0.10. A jacket at 0.10 is more
+casual than even a flight calls for, so "sharper" was correct — and useless.
+
+The user said *more casual than the rest*, not *as casual as possible*. A
+flagged piece now drops **one notch in the scale they were shown**: Dressed up →
+In between, In between → Casual. The gap stays wide enough for the verdict to
+name the piece, without inventing a claim the user never made.
+
+With the fix, a "Dressed up" look with the jacket flagged reads *sharper* for an
+interview and *easier* for a flight — the demo pair works with the flag on.
+
+A general form worth keeping: **an input converted into a number must not say
+more than the person did.** The scale shown to the user is the scale their
+answer belongs to.
+
+## 25. To arbitrate — product decisions that are yours
+
+### 25.1 The journey captures no value
 
 The *Ready* screen ends on "Start another moment". The positioning document §10
 nonetheless mentions a retail extension: *uncertainty → ONE CHANGE → proof →
@@ -618,7 +640,7 @@ doing nothing and owning it.
 dilutes the idea — is worth more than an improvised business hook, and the jury
 scores *decision confidence*, not conversion.
 
-### 24.2 No user feedback on the decision
+### 25.2 No user feedback on the decision
 
 The product rules and never listens. A "that wasn't the right piece" on the final
 screen would cost one button and would yield the only data that allows
@@ -627,7 +649,7 @@ thing an enterprise buyer will ask for.
 
 Not done: it requires deciding what to measure, and where to store it.
 
-### 24.3 The catalogue remains a crutch
+### 25.3 The catalogue remains a crutch
 
 Twelve generated flat shapes. "Try a piece of your own" sidesteps the problem and
 is the best real-world use, but the default demo still goes through the
@@ -641,7 +663,7 @@ For the retail extension of positioning §10, the manifest is what matters: a
 retailer already has product visuals online, and their catalogue becomes an
 `id → URL` list with no further integration.
 
-### 24.4 The skin signal is almost always absent in real conditions
+### 25.4 The skin signal is almost always absent in real conditions
 
 Skin AI requires a face filling 60% of the width; MIRROR OPS photographs an
 outfit. The server-side crop answers the problem, but fails as soon as the face
@@ -655,7 +677,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 25. Out of scope — accepted here, blocking in production
+## 26. Out of scope — accepted here, blocking in production
 
 | Missing | Why it blocks elsewhere |
 |---|---|
@@ -668,7 +690,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 26. What holds
+## 27. What holds
 
 The constraint is respected end to end: a single recommendation, never a list,
 `NO_CHANGE` possible, no invented value, the fallback admitted in plain words,

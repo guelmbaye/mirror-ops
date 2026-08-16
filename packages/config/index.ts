@@ -116,6 +116,23 @@ export const DRESS_LEVELS = [
   { value: 0.88, label: "Dressed up", hint: "tailored, formal shoes" },
 ] as const;
 
+/**
+ * La pièce signalée « plus décontractée que le reste » descend d'UN cran dans
+ * cette même échelle.
+ *
+ * Un retrait fixe de 0,4 l'envoyait au plancher dès que la tenue était déjà
+ * décontractée : une veste à 0,10 est plus décontractée que ce qu'un voyage
+ * demande, si bien qu'un entretien et un voyage recevaient tous deux
+ * « for something sharper » — techniquement juste, et sans intérêt. L'utilisateur
+ * a dit « plus décontractée que le reste », pas « aussi décontractée que
+ * possible ».
+ */
+export function oneNotchDown(level: number): number {
+  const scale = DRESS_LEVELS.map((l) => l.value).sort((a, b) => a - b);
+  const below = scale.filter((value) => value < level - 0.01);
+  return below.length > 0 ? below[below.length - 1] : Math.max(0.1, level - 0.12);
+}
+
 export const FLOW_STEPS = [
   { path: "/moment", label: "Moment" },
   { path: "/look", label: "Look" },

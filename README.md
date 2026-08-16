@@ -417,7 +417,7 @@ cd apps/api && python -m pytest -q      # 320 tests
 On the interface side:
 
 ```bash
-npm run test --workspace @mirror-ops/web    # 34 render tests (vitest + jsdom)
+npm run test --workspace @mirror-ops/web    # 35 render tests (vitest + jsdom)
 npm run typecheck                           # app and tests, two passes
 npm run build                               # production build
 ```

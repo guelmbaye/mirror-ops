@@ -7,7 +7,7 @@ import { Action } from "@/components/Action";
 import { CameraCapture, cameraIsAvailable } from "@/components/CameraCapture";
 import { Notice } from "@/components/Notice";
 import { Stage } from "@/components/Stage";
-import { DRESS_LEVELS, ELEMENT_LABELS } from "@mirror-ops/config";
+import { DRESS_LEVELS, ELEMENT_LABELS, oneNotchDown } from "@mirror-ops/config";
 import { OUTFIT_ELEMENTS, type OutfitElement, type OutfitIn } from "@mirror-ops/types";
 
 import { clearPhoto, getOutfit, getPhoto, setOutfit, setPhoto } from "@/lib/photo";
@@ -133,9 +133,10 @@ export default function LookPage() {
         outfit[element] = { present: worn.has(element) };
         continue;
       }
-      // La piece signalee descend nettement sous les autres : c'est cet écart
-      // qui permet au verdict de la nommer.
-      const level = element === oddOne ? Math.max(0.1, dress - 0.4) : dress;
+      // La pièce signalée descend d'UN cran dans l'échelle affichée — pas
+      // jusqu'au plancher. C'est l'écart qui permet au verdict de la nommer,
+      // sans sur-interpréter ce que l'utilisateur a dit.
+      const level = element === oddOne ? oneNotchDown(dress) : dress;
       outfit[element] = { present: true, formality: level, structure: level };
     }
     setOutfit(outfit);

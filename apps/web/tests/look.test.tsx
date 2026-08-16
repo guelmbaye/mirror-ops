@@ -152,3 +152,28 @@ describe("écran « your look »", () => {
     );
   });
 });
+
+describe("pièce signalée comme plus décontractée", () => {
+  test("descend d'un cran, pas jusqu'au plancher", async () => {
+    render(<LookPage />);
+    for (const label of ["Jacket", "Top", "Shoes"]) {
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Dressed up" }));
+
+    // La seconde rangée porte la même liste : on vise le bouton signalant.
+    const chips = screen.getAllByRole("button", { name: "Jacket" });
+    fireEvent.click(chips[chips.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const outfit = setOutfit.mock.calls[0][0] as Record<string, { formality?: number }>;
+
+    // Un retrait fixe envoyait la pièce au plancher dès que la tenue était déjà
+    // décontractée, si bien qu'un entretien et un voyage recevaient tous deux
+    // « for something sharper » — juste, et sans intérêt.
+    expect(outfit.jacket.formality).toBeGreaterThan(0.4);
+    expect(outfit.jacket.formality).toBeLessThan(outfit.top.formality!);
+    // L'écart reste assez net pour que le verdict puisse nommer la pièce.
+    expect(outfit.top.formality! - outfit.jacket.formality!).toBeGreaterThan(0.2);
+  });
+});

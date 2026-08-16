@@ -565,6 +565,12 @@ for a dinner, a change against a "good to go".
 `scripts/demo_pairs.py --dressiness 0.55` ranks them. Choosing a dressiness that
 misdescribes the outfit to force a contrast would be staging the demo.
 
+**If you flag a piece as more casual than the rest**, expect the direction to
+follow that piece rather than the outfit. On a "Dressed up" look with the jacket
+flagged, the interview reads *sharper* and the flight *easier* — the pair still
+works. On a "Casual" look the flagged jacket is already below what a flight
+calls for, so both read *sharper*: correct, and pointless as a demonstration.
+
 **Tick every piece you're wearing**, jacket included. Nothing is pre-selected —
 deliberately, so an empty box is a statement rather than an oversight. If the
 jacket is left undeclared, the recommendation becomes "Add a jacket" for every
