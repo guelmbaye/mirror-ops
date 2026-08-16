@@ -98,7 +98,7 @@ mirror-ops/
 │   │   │   ├── integrations/youcam/ # client, adapters, mappers, offline providers
 │   │   │   ├── services/            # orchestration, storage, idempotency, cleanup
 │   │   │   └── assets/garments/     # small controlled catalogue
-│   │   └── tests/                   # 320 tests
+│   │   └── tests/                   # 324 tests
 │   └── web/                         # Next.js interface (App Router, TypeScript)
 │       └── src/
 │           ├── app/                 # 7 screens: / moment look analyzing one-change compare ready
@@ -385,7 +385,7 @@ Detail: [`docs/ONE_CHANGE_ENGINE.md`](docs/ONE_CHANGE_ENGINE.md).
 ## 7. Tests
 
 ```bash
-cd apps/api && python -m pytest -q      # 320 tests
+cd apps/api && python -m pytest -q      # 324 tests
 ```
 
 | File | Covers |
@@ -417,7 +417,7 @@ cd apps/api && python -m pytest -q      # 320 tests
 On the interface side:
 
 ```bash
-npm run test --workspace @mirror-ops/web    # 35 render tests (vitest + jsdom)
+npm run test --workspace @mirror-ops/web    # 36 render tests (vitest + jsdom)
 npm run typecheck                           # app and tests, two passes
 npm run build                               # production build
 ```

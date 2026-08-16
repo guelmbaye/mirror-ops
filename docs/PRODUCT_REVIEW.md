@@ -623,9 +623,28 @@ A general form worth keeping: **an input converted into a number must not say
 more than the person did.** The scale shown to the user is the scale their
 answer belongs to.
 
-## 25. To arbitrate — product decisions that are yours
+## 25. Decision logic living in the browser — fixed
 
-### 25.1 The journey captures no value
+Two consecutive tests of the same scenario gave different answers. The engine
+was identical; the interface was not rebuilt between them.
+
+The cause was structural. Converting "this piece is more casual than the rest"
+into a number is a **decision rule**, and it was running in the browser. That
+broke the interface's own contract — *it decides nothing, it displays what the
+engine chose* — and had a practical cost: correcting the rule required rebuilding
+the frontend, and nothing let anyone tell which version was serving.
+
+The interface now sends `odd_one_out: "jacket"` — the choice, not its
+consequence — and the server derives the level. One place to change, testable
+without a browser, and impossible to have stale in a way the API cannot report.
+
+The general form: **the interface declares what the person said; the engine
+decides what it is worth.** Any arithmetic on the client is a decision rule that
+escaped.
+
+## 26. To arbitrate — product decisions that are yours
+
+### 26.1 The journey captures no value
 
 The *Ready* screen ends on "Start another moment". The positioning document §10
 nonetheless mentions a retail extension: *uncertainty → ONE CHANGE → proof →
@@ -640,7 +659,7 @@ doing nothing and owning it.
 dilutes the idea — is worth more than an improvised business hook, and the jury
 scores *decision confidence*, not conversion.
 
-### 25.2 No user feedback on the decision
+### 26.2 No user feedback on the decision
 
 The product rules and never listens. A "that wasn't the right piece" on the final
 screen would cost one button and would yield the only data that allows
@@ -649,7 +668,7 @@ thing an enterprise buyer will ask for.
 
 Not done: it requires deciding what to measure, and where to store it.
 
-### 25.3 The catalogue remains a crutch
+### 26.3 The catalogue remains a crutch
 
 Twelve generated flat shapes. "Try a piece of your own" sidesteps the problem and
 is the best real-world use, but the default demo still goes through the
@@ -663,7 +682,7 @@ For the retail extension of positioning §10, the manifest is what matters: a
 retailer already has product visuals online, and their catalogue becomes an
 `id → URL` list with no further integration.
 
-### 25.4 The skin signal is almost always absent in real conditions
+### 26.4 The skin signal is almost always absent in real conditions
 
 Skin AI requires a face filling 60% of the width; MIRROR OPS photographs an
 outfit. The server-side crop answers the problem, but fails as soon as the face
@@ -677,7 +696,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 26. Out of scope — accepted here, blocking in production
+## 27. Out of scope — accepted here, blocking in production
 
 | Missing | Why it blocks elsewhere |
 |---|---|
@@ -690,7 +709,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 27. What holds
+## 28. What holds
 
 The constraint is respected end to end: a single recommendation, never a list,
 `NO_CHANGE` possible, no invented value, the fallback admitted in plain words,

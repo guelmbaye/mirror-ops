@@ -52,6 +52,11 @@ Fields: `session_id` (required), `image` (required), `outfit` (optional JSON),
 }
 ```
 
+`odd_one_out` names the piece the user flagged as more casual than the rest —
+the choice, not a level. The server drops it one notch in the scale the user was
+shown. Deriving it here rather than in the browser keeps a decision rule in the
+engine, where it can be corrected without rebuilding a client.
+
 Every numeric field is optional. When absent, MIRROR OPS applies a neutral prior
 **and** lowers decision confidence: the product never claims to have measured
 what it hasn't.

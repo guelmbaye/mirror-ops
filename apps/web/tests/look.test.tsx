@@ -154,7 +154,7 @@ describe("écran « your look »", () => {
 });
 
 describe("pièce signalée comme plus décontractée", () => {
-  test("descend d'un cran, pas jusqu'au plancher", async () => {
+  test("transmet le CHOIX, sans calculer de niveau", async () => {
     render(<LookPage />);
     for (const label of ["Jacket", "Top", "Shoes"]) {
       fireEvent.click(await screen.findByRole("button", { name: label }));
@@ -166,14 +166,27 @@ describe("pièce signalée comme plus décontractée", () => {
     fireEvent.click(chips[chips.length - 1]);
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    const outfit = setOutfit.mock.calls[0][0] as Record<string, { formality?: number }>;
+    const outfit = setOutfit.mock.calls[0][0] as Record<string, unknown> & {
+      jacket: { formality?: number };
+      top: { formality?: number };
+    };
 
-    // Un retrait fixe envoyait la pièce au plancher dès que la tenue était déjà
-    // décontractée, si bien qu'un entretien et un voyage recevaient tous deux
-    // « for something sharper » — juste, et sans intérêt.
-    expect(outfit.jacket.formality).toBeGreaterThan(0.4);
-    expect(outfit.jacket.formality).toBeLessThan(outfit.top.formality!);
-    // L'écart reste assez net pour que le verdict puisse nommer la pièce.
-    expect(outfit.top.formality! - outfit.jacket.formality!).toBeGreaterThan(0.2);
+    // L'interface déclare, le moteur décide. Convertir « plus décontractée »
+    // en un nombre est une règle de décision : la laisser ici imposait de
+    // reconstruire le frontend pour la corriger, et rien ne permettait de
+    // savoir quelle version tournait.
+    expect(outfit.odd_one_out).toBe("jacket");
+    expect(outfit.jacket.formality).toBe(outfit.top.formality);
+  });
+
+  test("ne signale rien si aucune pièce n'est désignée", async () => {
+    setOutfit.mockClear();
+    render(<LookPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Top" }));
+    fireEvent.click(screen.getByRole("button", { name: "Casual" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const outfit = setOutfit.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(outfit.odd_one_out).toBeUndefined();
   });
 });

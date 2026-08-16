@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from pydantic import Field, field_validator
@@ -39,12 +40,34 @@ class OutfitItemIn(APIModel):
         )
 
 
+#: L'echelle affichee a l'utilisateur. Le serveur derive les niveaux, pas le
+#: navigateur : « the interface decides nothing » vaut aussi pour un calcul.
+#: Tant que la conversion vivait dans le client, la corriger imposait de
+#: reconstruire le frontend, et rien ne permettait de savoir quelle version
+#: tournait.
+DRESS_LEVELS: tuple[float, ...] = (0.22, 0.55, 0.88)
+
+
+def one_notch_down(level: float) -> float:
+    """Un cran en dessous dans l'echelle montree a l'utilisateur.
+
+    « Plus decontractee que le reste » n'est pas « aussi decontractee que
+    possible » : un retrait fixe envoyait la piece au plancher des que la tenue
+    etait deja decontractee.
+    """
+    below = [value for value in DRESS_LEVELS if value < level - 0.01]
+    return below[-1] if below else max(0.1, level - 0.12)
+
+
 class OutfitIn(APIModel):
     jacket: OutfitItemIn | None = None
     top: OutfitItemIn | None = None
     bottom: OutfitItemIn | None = None
     shoes: OutfitItemIn | None = None
     accessories: OutfitItemIn | None = None
+
+    #: La piece que l'utilisateur signale comme plus decontractee que le reste.
+    odd_one_out: str | None = None
 
     def to_domain(self) -> dict[OutfitElement, OutfitItem]:
         mapping = {
@@ -54,11 +77,26 @@ class OutfitIn(APIModel):
             OutfitElement.SHOES: self.shoes,
             OutfitElement.ACCESSORIES: self.accessories,
         }
-        return {
+        domain = {
             element: (item or OutfitItemIn()).to_domain()
             for element, item in mapping.items()
             if item is None or item.present
         }
+
+        # La piece signalee descend d'un cran. Derive ICI et non dans le
+        # navigateur : l'interface declare ce que la personne a dit, le serveur
+        # decide ce que cela vaut.
+        if self.odd_one_out:
+            try:
+                odd = OutfitElement(self.odd_one_out)
+            except ValueError:
+                return domain
+            item = domain.get(odd)
+            if item is not None and item.present and item.known:
+                level = one_notch_down(item.formality)
+                domain[odd] = replace(item, formality=level, structure=level)
+
+        return domain
 
     @classmethod
     def parse_form_value(cls, raw: str | None) -> "OutfitIn":

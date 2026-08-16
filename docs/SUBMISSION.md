@@ -190,7 +190,7 @@ explicit prior *and* lower confidence.
 users to retake a perfectly good photo because their *outfit* was undescribed,
 which no amount of retaking could fix.
 
-**An audit that catches what unit tests can't.** 320 backend tests and 34
+**An audit that catches what unit tests can't.** 324 backend tests and 34
 frontend tests, plus a 42-check end-to-end audit against the assembled system.
 It verifies that a piece declared absent is never listed as "kept", that a FIT
 verdict never coexists with a demanded change, and that media URLs actually

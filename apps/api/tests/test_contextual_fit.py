@@ -640,3 +640,62 @@ def test_the_direction_always_points_the_right_way(level):
             continue
         target = OCCASION_TARGET_FORMALITY[occasion]
         assert shift == ("sharper" if level < target else "easier")
+
+
+# ------------------------------- la piece signalee, derivee cote serveur
+def test_the_flagged_piece_drops_one_notch_not_to_the_floor():
+    """« Plus decontractee que le reste » n'est pas « aussi decontractee que possible ».
+
+    Un retrait fixe de 0.4 envoyait la piece au plancher des que la tenue etait
+    deja decontractee : un entretien et un voyage recevaient alors tous deux
+    « for something sharper » — techniquement juste, et sans interet.
+    """
+    from app.schemas.appearance import DRESS_LEVELS, one_notch_down
+
+    assert one_notch_down(0.88) == 0.55
+    assert one_notch_down(0.55) == 0.22
+    # Sous le niveau le plus bas, on descend d'un pas mesure, pas au plancher.
+    assert 0.05 < one_notch_down(0.22) < 0.22
+    assert list(DRESS_LEVELS) == sorted(DRESS_LEVELS)
+
+
+def test_the_server_derives_the_level_not_the_browser():
+    """Une regle de decision n'appartient pas au navigateur.
+
+    Tant que la conversion vivait dans le client, la corriger imposait de
+    reconstruire le frontend — et rien ne permettait de savoir quelle version
+    tournait. Deux essais successifs ont donne des resultats differents pour
+    cette seule raison.
+    """
+    from app.schemas.appearance import OutfitIn
+
+    payload = {
+        element: {"present": True, "formality": 0.88, "structure": 0.88}
+        for element in ("jacket", "top", "bottom", "shoes", "accessories")
+    }
+    outfit = OutfitIn.model_validate({**payload, "odd_one_out": "jacket"}).to_domain()
+
+    assert outfit[OutfitElement.JACKET].formality == 0.55
+    assert outfit[OutfitElement.TOP].formality == 0.88
+    # Rien d'autre n'a bouge.
+    assert outfit[OutfitElement.SHOES].formality == 0.88
+
+
+def test_an_unknown_flagged_piece_is_ignored():
+    """Une valeur inattendue ne doit pas casser le parcours."""
+    from app.schemas.appearance import OutfitIn
+
+    payload = {"top": {"present": True, "formality": 0.55, "structure": 0.55}}
+    for value in ("hat", "", "TOP"):
+        outfit = OutfitIn.model_validate({**payload, "odd_one_out": value}).to_domain()
+        assert outfit[OutfitElement.TOP].formality == 0.55
+
+
+def test_flagging_an_undescribed_piece_changes_nothing():
+    """Sans niveau declare, il n'y a pas de cran a descendre."""
+    from app.schemas.appearance import OutfitIn
+
+    outfit = OutfitIn.model_validate(
+        {"jacket": {"present": True}, "odd_one_out": "jacket"}
+    ).to_domain()
+    assert outfit[OutfitElement.JACKET].known is False

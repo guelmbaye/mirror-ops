@@ -7,7 +7,7 @@ import { Action } from "@/components/Action";
 import { CameraCapture, cameraIsAvailable } from "@/components/CameraCapture";
 import { Notice } from "@/components/Notice";
 import { Stage } from "@/components/Stage";
-import { DRESS_LEVELS, ELEMENT_LABELS, oneNotchDown } from "@mirror-ops/config";
+import { DRESS_LEVELS, ELEMENT_LABELS } from "@mirror-ops/config";
 import { OUTFIT_ELEMENTS, type OutfitElement, type OutfitIn } from "@mirror-ops/types";
 
 import { clearPhoto, getOutfit, getPhoto, setOutfit, setPhoto } from "@/lib/photo";
@@ -127,18 +127,21 @@ export default function LookPage() {
   function goToAnalysis() {
     // On declare aussi ce qui est ABSENT : c'est cette information qui empeche
     // MIRROR OPS de recommander de changer une piece qui n'est pas la.
+    // L'interface DÉCLARE, le serveur décide.
+    //
+    // Elle calculait le niveau de la pièce signalée. C'est une règle de
+    // décision, donc elle appartient au moteur : tant qu'elle vivait ici, la
+    // corriger imposait de reconstruire le frontend, et rien ne permettait de
+    // savoir quelle version tournait — deux tests successifs ont donné des
+    // résultats différents pour cette seule raison.
     const outfit: OutfitIn = {};
     for (const element of OUTFIT_ELEMENTS) {
-      if (!worn.has(element) || dress === null) {
-        outfit[element] = { present: worn.has(element) };
-        continue;
-      }
-      // La pièce signalée descend d'UN cran dans l'échelle affichée — pas
-      // jusqu'au plancher. C'est l'écart qui permet au verdict de la nommer,
-      // sans sur-interpréter ce que l'utilisateur a dit.
-      const level = element === oddOne ? oneNotchDown(dress) : dress;
-      outfit[element] = { present: true, formality: level, structure: level };
+      outfit[element] =
+        worn.has(element) && dress !== null
+          ? { present: true, formality: dress, structure: dress }
+          : { present: worn.has(element) };
     }
+    if (oddOne) outfit.odd_one_out = oddOne;
     setOutfit(outfit);
     router.push("/analyzing");
   }

@@ -168,7 +168,17 @@ export interface OutfitItemIn {
   descriptor?: string | null;
 }
 
-export type OutfitIn = Partial<Record<OutfitElement, OutfitItemIn>>;
+export type OutfitIn = Partial<Record<OutfitElement, OutfitItemIn>> & {
+  /**
+   * La pièce déclarée « plus décontractée que le reste ».
+   *
+   * L'interface transmet le CHOIX ; le serveur en dérive le niveau. Tant que
+   * cette conversion vivait dans le navigateur, la corriger imposait de
+   * reconstruire le frontend, et rien ne permettait de savoir quelle version
+   * tournait.
+   */
+  odd_one_out?: OutfitElement;
+};
 
 export interface SkinObservations {
   texture: number | null;
