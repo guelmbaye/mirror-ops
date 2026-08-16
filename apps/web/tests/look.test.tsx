@@ -190,3 +190,41 @@ describe("pièce signalée comme plus décontractée", () => {
     expect(outfit.odd_one_out).toBeUndefined();
   });
 });
+
+describe("confirmation de ce qui sera envoyé", () => {
+  test("la ligne de résumé nomme la pièce signalée", async () => {
+    render(<LookPage />);
+    for (const label of ["Jacket", "Top", "Shoes"]) {
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Dressed up" }));
+
+    // Avant signalement : le résumé n'annonce aucune pièce en retrait.
+    expect(screen.queryByText(/with the .* more casual than the rest/)).toBeNull();
+
+    const chips = screen.getAllByRole("button", { name: "Jacket" });
+    fireEvent.click(chips[chips.length - 1]);
+
+    // Deux essais successifs ont donné « Don't change it » sans qu'on puisse
+    // dire si la pièce avait été signalée : rien à l'écran ne le confirmait.
+    expect(screen.getByText(/jacket more casual than the rest/)).toBeDefined();
+  });
+
+  test("signaler une pièce ne la retire pas de la tenue", async () => {
+    render(<LookPage />);
+    for (const label of ["Jacket", "Top"]) {
+      fireEvent.click(await screen.findByRole("button", { name: label }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Casual" }));
+
+    const chips = screen.getAllByRole("button", { name: "Jacket" });
+    fireEvent.click(chips[chips.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const outfit = setOutfit.mock.calls.at(-1)![0] as Record<string, { present?: boolean }> & {
+      odd_one_out?: string;
+    };
+    expect(outfit.jacket.present).toBe(true);
+    expect(outfit.odd_one_out).toBe("jacket");
+  });
+});

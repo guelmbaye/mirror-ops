@@ -642,9 +642,33 @@ The general form: **the interface declares what the person said; the engine
 decides what it is worth.** Any arithmetic on the client is a decision rule that
 escaped.
 
-## 26. To arbitrate — product decisions that are yours
+## 26. Nothing confirmed what the app had understood — fixed
 
-### 26.1 The journey captures no value
+Two consecutive tests returned *"Don't change it"*, and neither the tester nor I
+could say why. Measured against the deployed API, both of these produce exactly
+that screen, with the same score of 82:
+
+- five pieces declared, **no piece flagged**;
+- five pieces declared, **the jacket accidentally unticked** in the first row
+  instead of flagged in the second.
+
+Two different mistakes, one identical outcome, and nothing on screen
+distinguishing them. The diagnosis was impossible from the outside — and, worse,
+impossible for the person using it.
+
+The summary line now names the flag: *"Mirror Ops will read this as: jacket,
+top, bottom, shoes and accessories, with the jacket more casual than the rest."*
+And the second row says plainly that tapping there does **not** remove the piece
+from the look, because the two rows carry the same words and the confusion is
+entirely reasonable.
+
+The rule this belongs to: **whatever the product will act on, the person must be
+able to read back before it acts.** A control that changes a decision without
+appearing in the summary is a control nobody can verify.
+
+## 27. To arbitrate — product decisions that are yours
+
+### 27.1 The journey captures no value
 
 The *Ready* screen ends on "Start another moment". The positioning document §10
 nonetheless mentions a retail extension: *uncertainty → ONE CHANGE → proof →
@@ -659,7 +683,7 @@ doing nothing and owning it.
 dilutes the idea — is worth more than an improvised business hook, and the jury
 scores *decision confidence*, not conversion.
 
-### 26.2 No user feedback on the decision
+### 27.2 No user feedback on the decision
 
 The product rules and never listens. A "that wasn't the right piece" on the final
 screen would cost one button and would yield the only data that allows
@@ -668,7 +692,7 @@ thing an enterprise buyer will ask for.
 
 Not done: it requires deciding what to measure, and where to store it.
 
-### 26.3 The catalogue remains a crutch
+### 27.3 The catalogue remains a crutch
 
 Twelve generated flat shapes. "Try a piece of your own" sidesteps the problem and
 is the best real-world use, but the default demo still goes through the
@@ -682,7 +706,7 @@ For the retail extension of positioning §10, the manifest is what matters: a
 retailer already has product visuals online, and their catalogue becomes an
 `id → URL` list with no further integration.
 
-### 26.4 The skin signal is almost always absent in real conditions
+### 27.4 The skin signal is almost always absent in real conditions
 
 Skin AI requires a face filling 60% of the width; MIRROR OPS photographs an
 outfit. The server-side crop answers the problem, but fails as soon as the face
@@ -696,7 +720,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 27. Out of scope — accepted here, blocking in production
+## 28. Out of scope — accepted here, blocking in production
 
 | Missing | Why it blocks elsewhere |
 |---|---|
@@ -709,7 +733,7 @@ screen and contradicts the 90-second constraint.
 
 ---
 
-## 28. What holds
+## 29. What holds
 
 The constraint is respected end to end: a single recommendation, never a list,
 `NO_CHANGE` possible, no invented value, the fallback admitted in plain words,

@@ -248,6 +248,7 @@ export default function LookPage() {
                     </p>
                     <p className="fine" style={{ margin: "0 0 10px" }}>
                       Same pieces, different question: which one sits below the rest.
+                      Tapping here does <strong>not</strong> remove it from your look.
                     </p>
                     {/* Rendu volontairement distinct de la premiere liste :
                         les memes mots, la meme grille et le meme style faisaient
@@ -290,11 +291,23 @@ export default function LookPage() {
                   {missing.length > 0 ? (
                     <>
                       , and{" "}
-                      <strong className="wearing__missing">no {listOf(missing)}</strong>.
+                      <strong className="wearing__missing">no {listOf(missing)}</strong>
                     </>
-                  ) : (
-                    "."
-                  )}
+                  ) : null}
+                  {/* Le signalement doit se LIRE, pas seulement s'activer.
+                      Deux essais successifs ont donné « Don't change it » sans
+                      qu'on puisse dire si la pièce avait été signalée : rien à
+                      l'écran ne le confirmait avant de continuer. */}
+                  {oddOne ? (
+                    <>
+                      , with the{" "}
+                      <strong className="wearing__missing">
+                        {(ELEMENT_LABELS[oddOne] ?? oddOne).toLowerCase()} more casual than
+                        the rest
+                      </strong>
+                    </>
+                  ) : null}
+                  .
                 </p>
 
                 {/* L'absence est l'affirmation risquee : c'est elle qui produit
