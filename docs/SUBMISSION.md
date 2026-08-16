@@ -190,8 +190,8 @@ explicit prior *and* lower confidence.
 users to retake a perfectly good photo because their *outfit* was undescribed,
 which no amount of retaking could fix.
 
-**An audit that catches what unit tests can't.** 324 backend tests and 34
-frontend tests, plus a 42-check end-to-end audit against the assembled system.
+**An audit that catches what unit tests can't.** 324 backend tests and 38
+frontend tests, plus an end-to-end audit of the assembled system — 38 checks in production.
 It verifies that a piece declared absent is never listed as "kept", that a FIT
 verdict never coexists with a demanded change, and that media URLs actually
 resolve — a class of failure that returns HTTP 201 while showing nothing.
@@ -459,7 +459,7 @@ and the rules ask for footage on that device.
 |---|---|---|
 | 0:00–0:12 | Home, logo, signature | *Ten minutes before something that matters, you don't need twenty outfit ideas. You need to know whether what you're wearing works — and if not, what one thing to change.* |
 | 0:12–0:24 | Moment: **interview · professional · under 5 min** | *So Mirror Ops starts with the moment, not the wardrobe.* |
-| 0:24–0:40 | Full-length photo · tick all five pieces · **In between** | *One photo, head to feet. What you're wearing, and how dressed up it is.* |
+| 0:24–0:40 | Full-length photo · tick all five pieces · **In between** · the summary line reads it back | *One photo, head to feet. What you're wearing, how dressed up it is — and it reads the answer back before deciding anything.* |
 | 0:40–0:56 | **Fit verdict** — "Almost there." 64/100, gauge settles | *First answer: does this look fit the moment? Almost there. YouCam Skin AI reads the visual signals from that same photo — and because it needs a close-up while we shot a full-length, the server crops the face itself.* |
 | 0:56–1:12 | **ONE CHANGE** — "Change the jacket for something sharper." + Keep ledger (top, bottom, shoes, accessories) | *Then the decision. One change — not a list. It even says which way: sharper, not just different. And everything else stays, explicitly.* |
 | 1:12–1:42 | Try-on: button, **cut**, **Before/After** dragged | *YouCam Apparel Virtual Try-On proves it. Only the winning change is rendered — one journey, one try-on.* |
@@ -608,8 +608,10 @@ Taken on a phone, in portrait, in live mode.
 
 1. **Home** — the signature *Fit the moment. One change.*
 2. **Moment** — the three questions, one option selected in each
-3. **Your look** — photo, outfit chips, and the line
-   *"Mirror Ops will read this as… — and no jacket"*
+3. **Your look** — the full-length photo shown whole, the five chips ticked, the
+   dressiness answered, and the summary line reading back exactly what the
+   engine will receive: *"Mirror Ops will read this as: jacket, top, bottom,
+   shoes and accessories, with the jacket more casual than the rest."*
 4. **Verdict + ONE CHANGE** — the one that matters: "Almost there", the fit
    gauge, the verdict, and the Keep ledger
 5. **Before / After** — slider mid-way, both tags visible

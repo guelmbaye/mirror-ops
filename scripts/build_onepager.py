@@ -262,7 +262,7 @@ def page_two(s: dict) -> list:
     left = [
         Paragraph("VERIFIED, NOT ASSUMED", s["h"]),
         Paragraph(
-            "324 backend tests · 38 frontend tests · a 42-check end-to-end audit against "
+            "324 backend tests · 38 frontend tests · an end-to-end audit of "
             "the assembled system.", s["body"],
         ),
         Spacer(1, 4),
